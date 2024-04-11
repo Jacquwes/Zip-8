@@ -19,6 +19,7 @@ pub const Zip = struct {
     delay_timer: u8,
     sound_timer: u8,
 
+    const sprites_address: u12 = 0;
     const sprites = [0x10][5]u8{
         [_]u8{ 0xf0, 0x90, 0x90, 0x90, 0xf0 }, // 0
         [_]u8{ 0x20, 0x60, 0x20, 0x20, 0x70 }, // 1
@@ -138,10 +139,8 @@ pub const Zip = struct {
         self.stack_ptr -= 1;
     }
 
-    // TODO initialize memory space
     fn setAddressToSprite(self: Zip, register: u4) void {
-        _ = register;
-        _ = self;
+        self.address_register = sprites_address + self.registers[register];
     }
 
     fn setDelayTimer(self: Zip, register: u4) void {
