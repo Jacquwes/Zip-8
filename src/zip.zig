@@ -1,3 +1,5 @@
+const std = @import("std");
+
 pub const ZipError = error{
     IllegalReturn,
     StackFull,
@@ -24,11 +26,26 @@ pub const Zip = struct {
         _ = self;
     }
 
+    fn drawSprite(self: Zip, x: u4, y: u4, height: u4) void {
+        _ = height;
+        _ = y;
+        _ = x;
+        _ = self;
+    }
+
     fn gotoAddress(self: Zip, address: u12) void {
         self.program_counter = address;
     }
 
-    fn registerMinusRegister(self: Zip, x: u3, y: u4) void {
+    fn gotoAddressV0(self: Zip, address: u12) void {
+        self.program_counter = address + self.registers[0];
+    }
+
+    fn loadAddress(self: Zip, address: u12) void {
+        self.address_register = address;
+    }
+
+    fn registerMinusRegister(self: Zip, x: u4, y: u4) void {
         if (self.registers[x] >= self.registers[y])
             self.registers[0xf] = 1;
 
@@ -91,9 +108,26 @@ pub const Zip = struct {
         self.registers[register] = value;
     }
 
+    fn setRegisterToRandomAndN(self: Zip, x: u4, n: u8) void {
+        const random_generator = std.rand.Xoshiro256.init(0);
+        const random_number = random_generator.random().int(u8);
+        self.registers[x] = random_number & n;
+    }
+
     fn skipEqual(self: Zip, register: u4, value: u8) void {
         if (self.registers[register] == value)
             self.program_counter += 1;
+    }
+
+    // TODO: Implement keys
+    fn skipIfKeyPressed(self: Zip, register: u4) void {
+        _ = register;
+        _ = self;
+    }
+
+    fn skipIfKeyNotPressed(self: Zip, register: u4) void {
+        _ = register;
+        _ = self;
     }
 
     fn skipNotEqual(self: Zip, register: u4, value: u8) void {
@@ -103,6 +137,11 @@ pub const Zip = struct {
 
     fn skipRegistersEqual(self: Zip, x: u4, y: u4) void {
         if (self.register[x] == self.registers[y])
+            self.program_counter += 1;
+    }
+
+    fn skipRegistersNotEqual(self: Zip, x: u4, y: u4) void {
+        if (self.registers[x] != self.registers[y])
             self.program_counter += 1;
     }
 
@@ -133,6 +172,16 @@ pub const Zip = struct {
                 6 => self.registerShiftRight((instruction & 0x0f00) >> 16, (instruction & 0x00f0) >> 8),
                 7 => self.registerRegisterMinus((instruction & 0x0f00) >> 16, (instruction & 0x00f0) >> 8),
                 14 => self.registerShiftLeft((instruction & 0x0f00) >> 16, (instruction & 0x00f0) >> 8),
+                _ => return ZipError.UnknownOp,
+            },
+            0x9000 => self.skipRegistersNotEqual((instruction & 0x0f00) >> 16, (instruction & 0x00f0) >> 8),
+            0xa000 => self.loadAddress(instruction & 0x0fff),
+            0xb000 => self.gotoAddressV0(instruction & 0x0fff),
+            0xc000 => self.setRegisterToRandomAndN((instruction & 0x0f00) >> 16, instruction & 0x00ff),
+            0xd000 => self.drawSprite((instruction & 0x0f00) >> 16, (instruction & 0x00f0) >> 8, instruction & 0x000f),
+            0xe000 => switch ((instruction & 0x00ff)) {
+                0x9e => self.skipIfKeyPressed((instruction & 0x0f00) >> 16),
+                0xa1 => self.skipIfKeyNotPressed((instruction & 0x0f00) >> 16),
                 _ => return ZipError.UnknownOp,
             },
         }
