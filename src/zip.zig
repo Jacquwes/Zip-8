@@ -62,6 +62,12 @@ pub const Zip = struct {
         _ = self;
     }
 
+    fn dumpRegistersUpTo(self: Zip, register: u4) void {
+        for (self.registers, 0..register) |value, i| {
+            self.memory[i + self.address_register] = value;
+        }
+    }
+
     fn getDelay(self: Zip, register: u4) void {
         self.registers[register] = self.delay_timer;
     }
@@ -82,6 +88,12 @@ pub const Zip = struct {
 
     fn loadAddress(self: Zip, address: u12) void {
         self.address_register = address;
+    }
+
+    fn loadRegistersUpTo(self: Zip, register: u4) void {
+        for (0..register) |i| {
+            self.registers[i] = self.memory[self.address_register + i];
+        }
     }
 
     fn registerMinusRegister(self: Zip, x: u4, y: u4) void {
@@ -196,6 +208,20 @@ pub const Zip = struct {
             self.program_counter += 1;
     }
 
+    fn storeBinaryCodedRegister(self: Zip, x: u4) !void {
+        if (self.address_register > 0x1000 - 3)
+            return ZipError.IllegalAddress;
+
+        const value = self.registers[x];
+        const hundreds = value / 100;
+        const tens = (value % 100) / 10;
+        const ones = (value % 10);
+
+        self.memory[self.address_register] = hundreds;
+        self.memory[self.address_register + 1] = tens;
+        self.memory[self.address_register + 2] = ones;
+    }
+
     fn executeInstruction(self: Zip, instruction: u16) !void {
         switch (instruction & 0xf000) {
             0x0000 => switch (instruction) {
@@ -242,7 +268,12 @@ pub const Zip = struct {
                 0x18 => self.setSoundTimer((instruction & 0x0f00) >> 16),
                 0x1e => self.AddRegisterToAddress((instruction & 0x0f00) >> 16),
                 0x29 => self.setAddressToSprite((instruction & 0x0f00) >> 16),
+                0x33 => self.storeBinaryCodedRegister((instruction & 0x0f00) >> 16),
+                0x55 => self.dumpRegistersUpTo((instruction & 0x0f00) >> 16),
+                0x65 => self.loadRegistersUpTo((instruction & 0x0f00) >> 16),
+                _ => return ZipError.UnknownOp,
             },
+            _ => return ZipError.UnknownOp,
         }
     }
 };
