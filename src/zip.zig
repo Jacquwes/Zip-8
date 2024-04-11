@@ -9,10 +9,15 @@ pub const ZipError = error{
 pub const Zip = struct {
     memory: [0x1000]u8,
     registers: [0xf]u8,
+
     address_register: u12,
     program_counter: u16,
+
     stack: [0x60]u12,
     stack_ptr: u8,
+
+    delay_timer: u8,
+    sound_timer: u8,
 
     fn callSubroutine(self: Zip, address: u12) !void {
         if (self.stack_ptr == 0x5f) return ZipError.StackFull;
@@ -30,6 +35,16 @@ pub const Zip = struct {
         _ = height;
         _ = y;
         _ = x;
+        _ = self;
+    }
+
+    fn getDelay(self: Zip, register: u4) void {
+        self.registers[register] = self.delay_timer;
+    }
+
+    // TODO
+    fn getKey(self: Zip, register: u4) !void {
+        _ = register;
         _ = self;
     }
 
@@ -100,6 +115,10 @@ pub const Zip = struct {
         self.stack_ptr -= 1;
     }
 
+    fn setDelayTimer(self: Zip, register: u4) void {
+        self.delay_timer = self.registers[register];
+    }
+
     fn setRegisterToRegister(self: Zip, x: u4, y: u4) void {
         self.registers[x] = self.registers[y];
     }
@@ -112,6 +131,10 @@ pub const Zip = struct {
         const random_generator = std.rand.Xoshiro256.init(0);
         const random_number = random_generator.random().int(u8);
         self.registers[x] = random_number & n;
+    }
+
+    fn setSoundTimer(self: Zip, register: u4) void {
+        self.sound_timer = self.registers[register];
     }
 
     fn skipEqual(self: Zip, register: u4, value: u8) void {
@@ -183,6 +206,12 @@ pub const Zip = struct {
                 0x9e => self.skipIfKeyPressed((instruction & 0x0f00) >> 16),
                 0xa1 => self.skipIfKeyNotPressed((instruction & 0x0f00) >> 16),
                 _ => return ZipError.UnknownOp,
+            },
+            0xf000 => switch (instruction & 0x00ff) {
+                0x07 => self.getDelay((instruction & 0x0f00) >> 16),
+                0x0a => self.getKey((instruction & 0x0f00) >> 16),
+                0x15 => self.setDelayTimer((instruction & 0x0f00) >> 16),
+                0x18 => self.setSoundTimer((instruction & 0x0f00) >> 16),
             },
         }
     }
