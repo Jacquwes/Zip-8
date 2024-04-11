@@ -19,6 +19,29 @@ pub const Zip = struct {
     delay_timer: u8,
     sound_timer: u8,
 
+    const sprites = [0x10][5]u8{
+        [_]u8{ 0xf0, 0x90, 0x90, 0x90, 0xf0 }, // 0
+        [_]u8{ 0x20, 0x60, 0x20, 0x20, 0x70 }, // 1
+        [_]u8{ 0x20, 0x10, 0xf0, 0x80, 0xf0 }, // 2
+        [_]u8{ 0xf0, 0x10, 0xf0, 0x10, 0xf0 }, // 3
+        [_]u8{ 0x90, 0x90, 0xf0, 0x10, 0x10 }, // 4
+        [_]u8{ 0xf0, 0x80, 0xf0, 0x10, 0xf0 }, // 5
+        [_]u8{ 0xf0, 0x80, 0xf0, 0x90, 0xf0 }, // 6
+        [_]u8{ 0xf0, 0x10, 0x20, 0x40, 0x40 }, // 7
+        [_]u8{ 0xf0, 0x90, 0xf0, 0x90, 0xf0 }, // 8
+        [_]u8{ 0xf0, 0x90, 0xf0, 0x10, 0xf0 }, // 9
+        [_]u8{ 0xf0, 0x90, 0xf0, 0x90, 0x90 }, // A
+        [_]u8{ 0xe0, 0x90, 0xe0, 0x90, 0xe0 }, // B
+        [_]u8{ 0xf0, 0x80, 0x80, 0x80, 0xf0 }, // C
+        [_]u8{ 0xe0, 0x90, 0x90, 0x90, 0xe0 }, // D
+        [_]u8{ 0xf0, 0x80, 0xf0, 0x80, 0xf0 }, // E
+        [_]u8{ 0xf0, 0x80, 0xf0, 0x80, 0x80 }, // F
+    };
+
+    fn AddRegisterToAddress(self: Zip, register: u4) void {
+        self.address_register += self.registers[register];
+    }
+
     fn callSubroutine(self: Zip, address: u12) !void {
         if (self.stack_ptr == 0x5f) return ZipError.StackFull;
 
@@ -113,6 +136,12 @@ pub const Zip = struct {
 
         self.program_counter = self.stack[self.stack_ptr - 1];
         self.stack_ptr -= 1;
+    }
+
+    // TODO initialize memory space
+    fn setAddressToSprite(self: Zip, register: u4) void {
+        _ = register;
+        _ = self;
     }
 
     fn setDelayTimer(self: Zip, register: u4) void {
@@ -212,6 +241,8 @@ pub const Zip = struct {
                 0x0a => self.getKey((instruction & 0x0f00) >> 16),
                 0x15 => self.setDelayTimer((instruction & 0x0f00) >> 16),
                 0x18 => self.setSoundTimer((instruction & 0x0f00) >> 16),
+                0x1e => self.AddRegisterToAddress((instruction & 0x0f00) >> 16),
+                0x29 => self.setAddressToSprite((instruction & 0x0f00) >> 16),
             },
         }
     }
