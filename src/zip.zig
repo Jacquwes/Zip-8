@@ -192,7 +192,7 @@ pub const Zip = struct {
 
     fn skipEqual(self: Zip, register: u4, value: u8) void {
         if (self.registers[register] == value)
-            self.program_counter += 1;
+            self.program_counter += 2;
     }
 
     // TODO: Implement keys
@@ -208,17 +208,17 @@ pub const Zip = struct {
 
     fn skipNotEqual(self: Zip, register: u4, value: u8) void {
         if (self.registers[register] != value)
-            self.program_counter += 1;
+            self.program_counter += 2;
     }
 
     fn skipRegistersEqual(self: Zip, x: u4, y: u4) void {
         if (self.register[x] == self.registers[y])
-            self.program_counter += 1;
+            self.program_counter += 2;
     }
 
     fn skipRegistersNotEqual(self: Zip, x: u4, y: u4) void {
         if (self.registers[x] != self.registers[y])
-            self.program_counter += 1;
+            self.program_counter += 2;
     }
 
     fn storeBinaryCodedRegister(self: Zip, x: u4) !void {
