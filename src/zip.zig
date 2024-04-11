@@ -8,7 +8,7 @@ pub const ZipError = error{
 
 pub const Zip = struct {
     memory: [0x1000]u8,
-    registers: [0xf]u8,
+    registers: [0x10]u8,
 
     address_register: u12,
     program_counter: u16,
@@ -38,6 +38,19 @@ pub const Zip = struct {
         [_]u8{ 0xf0, 0x80, 0xf0, 0x80, 0xf0 }, // E
         [_]u8{ 0xf0, 0x80, 0xf0, 0x80, 0x80 }, // F
     };
+
+    pub fn init() Zip {
+        return .{
+            .address_register = 0,
+            .delay_timer = 0,
+            .memory = [_]u8{0} ** 0x1000,
+            .program_counter = 0,
+            .registers = [_]u8{0} ** 0x10,
+            .sound_timer = 0,
+            .stack = [_]u12{0} ** 0x60,
+            .stack_ptr = 0,
+        };
+    }
 
     fn AddRegisterToAddress(self: Zip, register: u4) void {
         self.address_register += self.registers[register];
@@ -223,11 +236,11 @@ pub const Zip = struct {
     }
 
     fn executeInstruction(self: Zip, instruction: u16) !void {
-        switch (instruction & 0xf000) {
+        return switch (instruction & 0xf000) {
             0x0000 => switch (instruction) {
                 0x00e0 => self.clearScreen(),
                 0x0ee0 => self.returnFromSubroutine(),
-                _ => return ZipError.UnknownOp,
+                _ => ZipError.UnknownOp,
             },
             0x1000 => self.gotoAddress(instruction & 0x0fff),
             0x2000 => self.callSubroutine(instruction & 0x0fff),
@@ -235,7 +248,7 @@ pub const Zip = struct {
             0x4000 => self.skipNotEqual((instruction & 0x0f00) >> 16, instruction & 0xff),
             0x5000 => switch (instruction & 0x000f) {
                 0 => self.skipRegistersEqual((instruction & 0x0f00) >> 16, (instruction & 0x00f0) >> 8),
-                _ => return ZipError.UnknownOp,
+                _ => ZipError.UnknownOp,
             },
             0x6000 => self.setRegisterToValue((instruction & 0x0f00) >> 16, instruction & 0x00ff),
             0x7000 => self.registerAddValue((instruction & 0x0f00) >> 16, instruction & 0x00ff),
@@ -249,7 +262,7 @@ pub const Zip = struct {
                 6 => self.registerShiftRight((instruction & 0x0f00) >> 16, (instruction & 0x00f0) >> 8),
                 7 => self.registerRegisterMinus((instruction & 0x0f00) >> 16, (instruction & 0x00f0) >> 8),
                 14 => self.registerShiftLeft((instruction & 0x0f00) >> 16, (instruction & 0x00f0) >> 8),
-                _ => return ZipError.UnknownOp,
+                _ => ZipError.UnknownOp,
             },
             0x9000 => self.skipRegistersNotEqual((instruction & 0x0f00) >> 16, (instruction & 0x00f0) >> 8),
             0xa000 => self.loadAddress(instruction & 0x0fff),
@@ -259,7 +272,7 @@ pub const Zip = struct {
             0xe000 => switch ((instruction & 0x00ff)) {
                 0x9e => self.skipIfKeyPressed((instruction & 0x0f00) >> 16),
                 0xa1 => self.skipIfKeyNotPressed((instruction & 0x0f00) >> 16),
-                _ => return ZipError.UnknownOp,
+                _ => ZipError.UnknownOp,
             },
             0xf000 => switch (instruction & 0x00ff) {
                 0x07 => self.getDelay((instruction & 0x0f00) >> 16),
@@ -271,9 +284,9 @@ pub const Zip = struct {
                 0x33 => self.storeBinaryCodedRegister((instruction & 0x0f00) >> 16),
                 0x55 => self.dumpRegistersUpTo((instruction & 0x0f00) >> 16),
                 0x65 => self.loadRegistersUpTo((instruction & 0x0f00) >> 16),
-                _ => return ZipError.UnknownOp,
+                _ => ZipError.UnknownOp,
             },
-            _ => return ZipError.UnknownOp,
-        }
+            _ => ZipError.UnknownOp,
+        };
     }
 };
