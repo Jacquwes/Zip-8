@@ -164,7 +164,24 @@ pub const Zip = struct {
         self.stack_ptr -= 1;
     }
 
-    fn setAddressToSprite(self: Zip, register: u4) void {
+    pub fn run(self: *Zip) !bool {
+        const stdout = std.io.getStdOut().writer();
+        var timer = try std.time.Timer.start();
+
+        zip_loop: while (true) {
+            const elapsed_nanoseconds = timer.read();
+            if (elapsed_nanoseconds * std.time.ns_per_s > @as(u64, @intFromFloat(1.0 / 60.0))) {
+                self.tick() catch |err| switch (err) {
+                    ZipError.StackFull => break :zip_loop try stdout.print("The call stack is full! Cannot call another function.\n", .{}),
+                    ZipError.UnknownOp => break :zip_loop try stdout.print("An unknown opcode has been encountered!\n", .{}),
+                    ZipError.IllegalReturn => break :zip_loop try stdout.print("Trying to return from global scope!\n", .{}),
+                    ZipError.IllegalAddress => break :zip_loop try stdout.print("Trying to access illegal address!\n", .{}),
+                };
+            }
+        }
+
+        return true;
+    }
         self.address_register = sprites_address + self.registers[register];
     }
 
