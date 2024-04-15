@@ -20,6 +20,8 @@ pub const Zip = struct {
     delay_timer: u8,
     sound_timer: u8,
 
+    screen: [0x20 * 0x40]u1,
+
     const sprites_address: u12 = 0;
     const sprites = [0x10][5]u8{
         [_]u8{ 0xf0, 0x90, 0x90, 0x90, 0xf0 }, // 0
@@ -47,6 +49,7 @@ pub const Zip = struct {
             .memory = [_]u8{0} ** 0x1000,
             .program_counter = 0,
             .registers = [_]u8{0} ** 0x10,
+            .screen = [_]u1{0} ** (0x20 * 0x40),
             .sound_timer = 0,
             .stack = [_]u12{0} ** 0x60,
             .stack_ptr = 0,
@@ -70,11 +73,11 @@ pub const Zip = struct {
         self.stack_ptr += 1;
     }
 
-    // TODO: implement screen
     fn clearScreen(self: *Zip) void {
-        _ = self;
+        self.screen = [_]u1{0} ** (0x20 * 0x40);
     }
 
+    // TODO
     fn drawSprite(self: *Zip, x: u4, y: u4, height: u4) void {
         _ = height;
         _ = y;
