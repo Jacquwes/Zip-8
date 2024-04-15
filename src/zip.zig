@@ -1,6 +1,7 @@
 const std = @import("std");
 
 pub const ZipError = error{
+    IllegalAddress,
     IllegalReturn,
     StackFull,
     UnknownOp,
@@ -52,11 +53,11 @@ pub const Zip = struct {
         };
     }
 
-    fn AddRegisterToAddress(self: Zip, register: u4) void {
+    fn addRegisterToAddress(self: *Zip, register: u4) void {
         self.address_register += self.registers[register];
     }
 
-    fn callSubroutine(self: Zip, address: u12) !void {
+    fn callSubroutine(self: *Zip, address: u12) !void {
         if (self.stack_ptr == 0x5f) return ZipError.StackFull;
 
         self.stack[self.stack_ptr] = address;
@@ -64,100 +65,100 @@ pub const Zip = struct {
     }
 
     // TODO: implement screen
-    fn clearScreen(self: Zip) void {
+    fn clearScreen(self: *Zip) void {
         _ = self;
     }
 
-    fn drawSprite(self: Zip, x: u4, y: u4, height: u4) void {
+    fn drawSprite(self: *Zip, x: u4, y: u4, height: u4) void {
         _ = height;
         _ = y;
         _ = x;
         _ = self;
     }
 
-    fn dumpRegistersUpTo(self: Zip, register: u4) void {
+    fn dumpRegistersUpTo(self: *Zip, register: u4) void {
         for (self.registers, 0..register) |value, i| {
             self.memory[i + self.address_register] = value;
         }
     }
 
-    fn getDelay(self: Zip, register: u4) void {
+    fn getDelay(self: *Zip, register: u4) void {
         self.registers[register] = self.delay_timer;
     }
 
     // TODO
-    fn getKey(self: Zip, register: u4) !void {
+    fn getKey(self: *Zip, register: u4) !void {
         _ = register;
         _ = self;
     }
 
-    fn gotoAddress(self: Zip, address: u12) void {
+    fn gotoAddress(self: *Zip, address: u12) void {
         self.program_counter = address;
     }
 
-    fn gotoAddressV0(self: Zip, address: u12) void {
+    fn gotoAddressV0(self: *Zip, address: u12) void {
         self.program_counter = address + self.registers[0];
     }
 
-    fn loadAddress(self: Zip, address: u12) void {
+    fn loadAddress(self: *Zip, address: u12) void {
         self.address_register = address;
     }
 
-    fn loadRegistersUpTo(self: Zip, register: u4) void {
+    fn loadRegistersUpTo(self: *Zip, register: u4) void {
         for (0..register) |i| {
             self.registers[i] = self.memory[self.address_register + i];
         }
     }
 
-    fn registerMinusRegister(self: Zip, x: u4, y: u4) void {
+    fn registerMinusRegister(self: *Zip, x: u4, y: u4) void {
         if (self.registers[x] >= self.registers[y])
             self.registers[0xf] = 1;
 
         self.registers[x] -= self.registers[y];
     }
 
-    fn registerPlusRegister(self: Zip, x: u4, y: u4) void {
+    fn registerPlusRegister(self: *Zip, x: u4, y: u4) void {
         self.registers[x] += self.registers[y];
     }
 
-    fn registerAddValue(self: Zip, register: u4, value: u8) void {
-        const result: u8 = (self.registers[register] + value) % 0x100;
+    fn registerAddValue(self: *Zip, register: u4, value: u8) void {
+        const result: u8 = @truncate((self.registers[register] + value));
 
         self.registers[register] = result;
     }
 
-    fn registerAndRegister(self: Zip, x: u4, y: u4) void {
+    fn registerAndRegister(self: *Zip, x: u4, y: u4) void {
         self.registers[x] &= self.registers[y];
     }
 
-    fn registerRegisterMinus(self: Zip, x: u4, y: u4) void {
+    fn registerRegisterMinus(self: *Zip, x: u4, y: u4) void {
         if (self.registers[y] >= self.registers[x])
             self.registers[0xf] = 1;
 
         self.registers[x] = self.registers[y] - self.registers[x];
     }
 
-    fn registerShiftLeft(self: Zip, register: u4) void {
-        self.registers[0xf] = (self.registers[register] & 0b1000_0000) >> 7;
+    fn registerShiftLeft(self: *Zip, x: u4, y: u4) void {
+        self.registers[0xf] = (self.registers[y] & 0b1000_0000) >> 7;
 
-        self.registers[register] <<= 1;
+        self.registers[x] = self.registers[y] << 1;
     }
 
-    fn registerShiftRight(self: Zip, register: u4) void {
-        self.registers[0xf] = self.registers[register] & 1;
+    fn registerShiftRight(self: *Zip, x: u4, y: u4) void {
+        self.registers[0xf] = self.registers[y] & 1;
 
-        self.registers[register] >>= 1;
+        self.registers[x] = self.registers[y] >> 1;
     }
 
-    fn registerOrRegister(self: Zip, x: u4, y: u4) void {
+    fn registerOrRegister(self: *Zip, x: u4, y: u4) void {
         self.registers[x] |= self.registers[y];
     }
 
-    fn registerXorRegister(self: Zip, x: u4, y: u4) void {
+    fn registerXorRegister(self: *Zip, x: u4, y: u4) void {
         self.registers[x] ^= self.registers[y];
     }
 
-    fn returnFromSubroutine(self: Zip) !void {
+    fn returnFromSubroutine(self: *Zip) !void {
         if (self.stack_ptr == 0) return ZipError.IllegalReturn;
 
         self.program_counter = self.stack[self.stack_ptr - 1];
@@ -182,63 +183,65 @@ pub const Zip = struct {
 
         return true;
     }
+
+    fn setAddressToSprite(self: *Zip, register: u4) void {
         self.address_register = sprites_address + self.registers[register];
     }
 
-    fn setDelayTimer(self: Zip, register: u4) void {
+    fn setDelayTimer(self: *Zip, register: u4) void {
         self.delay_timer = self.registers[register];
     }
 
-    fn setRegisterToRegister(self: Zip, x: u4, y: u4) void {
+    fn setRegisterToRegister(self: *Zip, x: u4, y: u4) void {
         self.registers[x] = self.registers[y];
     }
 
-    fn setRegisterToValue(self: Zip, register: u4, value: u8) void {
+    fn setRegisterToValue(self: *Zip, register: u4, value: u8) void {
         self.registers[register] = value;
     }
 
-    fn setRegisterToRandomAndN(self: Zip, x: u4, n: u8) void {
-        const random_generator = std.rand.Xoshiro256.init(0);
+    fn setRegisterToRandomAndN(self: *Zip, x: u4, n: u8) void {
+        var random_generator = std.rand.Xoshiro256.init(0);
         const random_number = random_generator.random().int(u8);
         self.registers[x] = random_number & n;
     }
 
-    fn setSoundTimer(self: Zip, register: u4) void {
+    fn setSoundTimer(self: *Zip, register: u4) void {
         self.sound_timer = self.registers[register];
     }
 
-    fn skipEqual(self: Zip, register: u4, value: u8) void {
+    fn skipEqual(self: *Zip, register: u4, value: u8) void {
         if (self.registers[register] == value)
             self.program_counter += 2;
     }
 
     // TODO: Implement keys
-    fn skipIfKeyPressed(self: Zip, register: u4) void {
+    fn skipIfKeyPressed(self: *Zip, register: u4) void {
         _ = register;
         _ = self;
     }
 
-    fn skipIfKeyNotPressed(self: Zip, register: u4) void {
+    fn skipIfKeyNotPressed(self: *Zip, register: u4) void {
         _ = register;
         _ = self;
     }
 
-    fn skipNotEqual(self: Zip, register: u4, value: u8) void {
+    fn skipNotEqual(self: *Zip, register: u4, value: u8) void {
         if (self.registers[register] != value)
             self.program_counter += 2;
     }
 
-    fn skipRegistersEqual(self: Zip, x: u4, y: u4) void {
-        if (self.register[x] == self.registers[y])
+    fn skipRegistersEqual(self: *Zip, x: u4, y: u4) void {
+        if (self.registers[x] == self.registers[y])
             self.program_counter += 2;
     }
 
-    fn skipRegistersNotEqual(self: Zip, x: u4, y: u4) void {
+    fn skipRegistersNotEqual(self: *Zip, x: u4, y: u4) void {
         if (self.registers[x] != self.registers[y])
             self.program_counter += 2;
     }
 
-    fn storeBinaryCodedRegister(self: Zip, x: u4) !void {
+    fn storeBinaryCodedRegister(self: *Zip, x: u4) !void {
         if (self.address_register > 0x1000 - 3)
             return ZipError.IllegalAddress;
 
@@ -252,58 +255,68 @@ pub const Zip = struct {
         self.memory[self.address_register + 2] = ones;
     }
 
-    fn executeInstruction(self: Zip, instruction: u16) !void {
+    fn tick(self: *Zip) !void {
+        const instruction: u16 = std.mem.readIntSlice(u16, self.memory[self.program_counter .. self.program_counter + 1], .Little);
+
+        try self.executeInstruction(instruction);
+
+        self.program_counter += 2;
+        self.delay_timer -= 1;
+        self.sound_timer -= 1;
+    }
+
+    fn executeInstruction(self: *Zip, instruction: u16) !void {
         return switch (instruction & 0xf000) {
             0x0000 => switch (instruction) {
                 0x00e0 => self.clearScreen(),
                 0x0ee0 => self.returnFromSubroutine(),
-                _ => ZipError.UnknownOp,
+                else => ZipError.UnknownOp,
             },
-            0x1000 => self.gotoAddress(instruction & 0x0fff),
-            0x2000 => self.callSubroutine(instruction & 0x0fff),
-            0x3000 => self.skipEqual((instruction & 0x0f00) >> 16, instruction & 0xff),
-            0x4000 => self.skipNotEqual((instruction & 0x0f00) >> 16, instruction & 0xff),
+            0x1000 => self.gotoAddress(@truncate(instruction)),
+            0x2000 => self.callSubroutine(@truncate(instruction)),
+            0x3000 => self.skipEqual(@truncate(instruction >> 8), @truncate(instruction)),
+            0x4000 => self.skipNotEqual(@truncate(instruction >> 8), @truncate(instruction)),
             0x5000 => switch (instruction & 0x000f) {
-                0 => self.skipRegistersEqual((instruction & 0x0f00) >> 16, (instruction & 0x00f0) >> 8),
-                _ => ZipError.UnknownOp,
+                0 => self.skipRegistersEqual(@truncate(instruction >> 8), @truncate(instruction >> 4)),
+                else => ZipError.UnknownOp,
             },
-            0x6000 => self.setRegisterToValue((instruction & 0x0f00) >> 16, instruction & 0x00ff),
-            0x7000 => self.registerAddValue((instruction & 0x0f00) >> 16, instruction & 0x00ff),
+            0x6000 => self.setRegisterToValue(@truncate(instruction >> 8), @truncate(instruction)),
+            0x7000 => self.registerAddValue(@truncate(instruction >> 8), @truncate(instruction)),
             0x8000 => switch (instruction & 0x000f) {
-                0 => self.setRegisterToRegister((instruction & 0x0f00) >> 16, (instruction & 0x00f0) >> 8),
-                1 => self.registerOrRegister((instruction & 0x0f00) >> 16, (instruction & 0x00f0) >> 8),
-                2 => self.registerAndRegister((instruction & 0x0f00) >> 16, (instruction & 0x00f0) >> 8),
-                3 => self.registerXorRegister((instruction & 0x0f00) >> 16, (instruction & 0x00f0) >> 8),
-                4 => self.registerPlusRegister((instruction & 0x0f00) >> 16, (instruction & 0x00f0) >> 8),
-                5 => self.registerMinusRegister((instruction & 0x0f00) >> 16, (instruction & 0x00f0) >> 8),
-                6 => self.registerShiftRight((instruction & 0x0f00) >> 16, (instruction & 0x00f0) >> 8),
-                7 => self.registerRegisterMinus((instruction & 0x0f00) >> 16, (instruction & 0x00f0) >> 8),
-                14 => self.registerShiftLeft((instruction & 0x0f00) >> 16, (instruction & 0x00f0) >> 8),
-                _ => ZipError.UnknownOp,
+                0 => self.setRegisterToRegister(@truncate(instruction >> 8), @truncate(instruction >> 4)),
+                1 => self.registerOrRegister(@truncate(instruction >> 8), @truncate(instruction >> 4)),
+                2 => self.registerAndRegister(@truncate(instruction >> 8), @truncate(instruction >> 4)),
+                3 => self.registerXorRegister(@truncate(instruction >> 8), @truncate(instruction >> 4)),
+                4 => self.registerPlusRegister(@truncate(instruction >> 8), @truncate(instruction >> 4)),
+                5 => self.registerMinusRegister(@truncate(instruction >> 8), @truncate(instruction >> 4)),
+                6 => self.registerShiftRight(@truncate(instruction >> 8), @truncate(instruction >> 4)),
+                7 => self.registerRegisterMinus(@truncate(instruction >> 8), @truncate(instruction >> 4)),
+                14 => self.registerShiftLeft(@truncate(instruction >> 8), @truncate(instruction >> 4)),
+                else => ZipError.UnknownOp,
             },
-            0x9000 => self.skipRegistersNotEqual((instruction & 0x0f00) >> 16, (instruction & 0x00f0) >> 8),
-            0xa000 => self.loadAddress(instruction & 0x0fff),
-            0xb000 => self.gotoAddressV0(instruction & 0x0fff),
-            0xc000 => self.setRegisterToRandomAndN((instruction & 0x0f00) >> 16, instruction & 0x00ff),
-            0xd000 => self.drawSprite((instruction & 0x0f00) >> 16, (instruction & 0x00f0) >> 8, instruction & 0x000f),
+            0x9000 => self.skipRegistersNotEqual(@truncate(instruction >> 8), @truncate(instruction >> 4)),
+            0xa000 => self.loadAddress(@truncate(instruction)),
+            0xb000 => self.gotoAddressV0(@truncate(instruction)),
+            0xc000 => self.setRegisterToRandomAndN(@truncate(instruction >> 8), @truncate(instruction)),
+            0xd000 => self.drawSprite(@truncate(instruction >> 8), @truncate(instruction >> 4), @truncate(instruction)),
             0xe000 => switch ((instruction & 0x00ff)) {
-                0x9e => self.skipIfKeyPressed((instruction & 0x0f00) >> 16),
-                0xa1 => self.skipIfKeyNotPressed((instruction & 0x0f00) >> 16),
-                _ => ZipError.UnknownOp,
+                0x9e => self.skipIfKeyPressed(@truncate(instruction >> 8)),
+                0xa1 => self.skipIfKeyNotPressed(@truncate(instruction >> 8)),
+                else => ZipError.UnknownOp,
             },
             0xf000 => switch (instruction & 0x00ff) {
-                0x07 => self.getDelay((instruction & 0x0f00) >> 16),
-                0x0a => self.getKey((instruction & 0x0f00) >> 16),
-                0x15 => self.setDelayTimer((instruction & 0x0f00) >> 16),
-                0x18 => self.setSoundTimer((instruction & 0x0f00) >> 16),
-                0x1e => self.AddRegisterToAddress((instruction & 0x0f00) >> 16),
-                0x29 => self.setAddressToSprite((instruction & 0x0f00) >> 16),
-                0x33 => self.storeBinaryCodedRegister((instruction & 0x0f00) >> 16),
-                0x55 => self.dumpRegistersUpTo((instruction & 0x0f00) >> 16),
-                0x65 => self.loadRegistersUpTo((instruction & 0x0f00) >> 16),
-                _ => ZipError.UnknownOp,
+                0x07 => self.getDelay(@truncate(instruction >> 8)),
+                0x0a => self.getKey(@truncate(instruction >> 8)),
+                0x15 => self.setDelayTimer(@truncate(instruction >> 8)),
+                0x18 => self.setSoundTimer(@truncate(instruction >> 8)),
+                0x1e => self.addRegisterToAddress(@truncate(instruction >> 8)),
+                0x29 => self.setAddressToSprite(@truncate(instruction >> 8)),
+                0x33 => self.storeBinaryCodedRegister(@truncate(instruction >> 8)),
+                0x55 => self.dumpRegistersUpTo(@truncate(instruction >> 8)),
+                0x65 => self.loadRegistersUpTo(@truncate(instruction >> 8)),
+                else => ZipError.UnknownOp,
             },
-            _ => ZipError.UnknownOp,
+            else => ZipError.UnknownOp,
         };
     }
 };
