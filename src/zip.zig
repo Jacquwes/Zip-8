@@ -41,7 +41,7 @@ pub const Zip = struct {
     };
 
     pub fn init() Zip {
-        return .{
+        var zip: Zip = .{
             .address_register = 0,
             .delay_timer = 0,
             .memory = [_]u8{0} ** 0x1000,
@@ -51,6 +51,12 @@ pub const Zip = struct {
             .stack = [_]u12{0} ** 0x60,
             .stack_ptr = 0,
         };
+
+        for (sprites, 0..) |sprite, i| {
+            @memcpy(zip.memory[i * 5 .. i * 5 + 5], &sprite);
+        }
+
+        return zip;
     }
 
     fn addRegisterToAddress(self: *Zip, register: u4) void {
