@@ -105,10 +105,21 @@ pub const Zip = struct {
     /// tall. The sprite is XORed with the screen buffer. If a pixel is
     /// erased, the carry flag is set to 1.
     fn drawSprite(self: *Zip, x: u4, y: u4, height: u4) void {
-        _ = height;
-        _ = y;
-        _ = x;
-        _ = self;
+        var iY: u8 = 0;
+        while (iY < height) : (iY += 1) {
+            var iX: u8 = 0;
+            while (iX < 8) : (iX += 1) {
+                const currentSpritePixel = (self.memory[self.address_register + iY] >> (7 - @as(u3, @intCast(iX)))) & 1;
+                const currentScreenPixel = (self.screen[(y + iY) * 0x40 + (x + iX)]) & 1;
+
+                if (currentSpritePixel == 1 and currentScreenPixel == 1) {
+                    self.registers[0xf] = 1;
+                    self.screen[(y + iY) * 0x40 + (x + iX)] = 0;
+                } else {
+                    self.screen[(y + iY) * 0x40 + (x + iX)] = 1;
+                }
+            }
+        }
     }
 
     /// FX55 - Dumps the values of the registers up to register X into memory
