@@ -88,6 +88,115 @@ pub const Zip = struct {
         return zip;
     }
 
+    /// This function runs the Zip. It will execute the instructions at the
+    /// program counter until an error is encountered. The function executes
+    /// instructions at a rate of 60Hz.
+    pub fn run(self: *Zip) !bool {
+        const stdout = std.io.getStdOut().writer();
+        var timer = try std.time.Timer.start();
+
+        zip_loop: while (true) {
+            const elapsed_nanoseconds = timer.read();
+            if (elapsed_nanoseconds * std.time.ns_per_s >
+                @as(u64, @intFromFloat(1.0 / 60.0)))
+            {
+                self.tick() catch |err| switch (err) {
+                    ZipError.StackFull => break :zip_loop try stdout.print(
+                        "The call stack is full! Cannot call another function.\n",
+                        .{},
+                    ),
+                    ZipError.UnknownOp => break :zip_loop try stdout.print(
+                        "An unknown opcode has been encountered!\n",
+                        .{},
+                    ),
+                    ZipError.IllegalReturn => break :zip_loop try stdout.print(
+                        "Trying to return from global scope!\n",
+                        .{},
+                    ),
+                    ZipError.IllegalAddress => break :zip_loop try stdout.print(
+                        "Trying to access illegal address!\n",
+                        .{},
+                    ),
+                };
+            }
+        }
+
+        return true;
+    }
+
+    /// This function executes the next instruction at the program counter.
+    /// It will increment the program counter by 2, decrement the delay and
+    /// sound timers by 1, and execute the instruction.
+    fn tick(self: *Zip) !void {
+        const instruction: u16 = std.mem.readInt(
+            u16,
+            self.memory[self.program_counter .. self.program_counter + 2][0..2],
+            .little,
+        );
+
+        try self.executeInstruction(instruction);
+
+        self.program_counter += 2;
+        self.delay_timer -= 1;
+        self.sound_timer -= 1;
+    }
+
+    /// This function executes the given instruction.
+    fn executeInstruction(self: *Zip, instruction: u16) !void {
+        return switch (instruction & 0xf000) {
+            0x0000 => switch (instruction) {
+                0x00e0 => self.clearScreen(),
+                0x0ee0 => self.returnFromSubroutine(),
+                else => ZipError.UnknownOp,
+            },
+            0x1000 => self.gotoAddress(@truncate(instruction)),
+            0x2000 => self.callSubroutine(@truncate(instruction)),
+            0x3000 => self.skipEqual(@truncate(instruction >> 8), @truncate(instruction)),
+            0x4000 => self.skipNotEqual(@truncate(instruction >> 8), @truncate(instruction)),
+            0x5000 => switch (instruction & 0x000f) {
+                0 => self.skipRegistersEqual(@truncate(instruction >> 8), @truncate(instruction >> 4)),
+                else => ZipError.UnknownOp,
+            },
+            0x6000 => self.setRegisterToValue(@truncate(instruction >> 8), @truncate(instruction)),
+            0x7000 => self.registerAddValue(@truncate(instruction >> 8), @truncate(instruction)),
+            0x8000 => switch (instruction & 0x000f) {
+                0 => self.setRegisterToRegister(@truncate(instruction >> 8), @truncate(instruction >> 4)),
+                1 => self.registerOrRegister(@truncate(instruction >> 8), @truncate(instruction >> 4)),
+                2 => self.registerAndRegister(@truncate(instruction >> 8), @truncate(instruction >> 4)),
+                3 => self.registerXorRegister(@truncate(instruction >> 8), @truncate(instruction >> 4)),
+                4 => self.registerPlusRegister(@truncate(instruction >> 8), @truncate(instruction >> 4)),
+                5 => self.registerMinusRegister(@truncate(instruction >> 8), @truncate(instruction >> 4)),
+                6 => self.registerShiftRight(@truncate(instruction >> 8), @truncate(instruction >> 4)),
+                7 => self.registerRegisterMinus(@truncate(instruction >> 8), @truncate(instruction >> 4)),
+                14 => self.registerShiftLeft(@truncate(instruction >> 8), @truncate(instruction >> 4)),
+                else => ZipError.UnknownOp,
+            },
+            0x9000 => self.skipRegistersNotEqual(@truncate(instruction >> 8), @truncate(instruction >> 4)),
+            0xa000 => self.loadAddress(@truncate(instruction)),
+            0xb000 => self.gotoAddressV0(@truncate(instruction)),
+            0xc000 => self.setRegisterToRandomAndN(@truncate(instruction >> 8), @truncate(instruction)),
+            0xd000 => self.drawSprite(@truncate(instruction >> 8), @truncate(instruction >> 4), @truncate(instruction)),
+            0xe000 => switch ((instruction & 0x00ff)) {
+                0x9e => self.skipIfKeyPressed(@truncate(instruction >> 8)),
+                0xa1 => self.skipIfKeyNotPressed(@truncate(instruction >> 8)),
+                else => ZipError.UnknownOp,
+            },
+            0xf000 => switch (instruction & 0x00ff) {
+                0x07 => self.getDelay(@truncate(instruction >> 8)),
+                0x0a => self.getKey(@truncate(instruction >> 8)),
+                0x15 => self.setDelayTimer(@truncate(instruction >> 8)),
+                0x18 => self.setSoundTimer(@truncate(instruction >> 8)),
+                0x1e => self.addRegisterToAddress(@truncate(instruction >> 8)),
+                0x29 => self.setAddressToSprite(@truncate(instruction >> 8)),
+                0x33 => self.storeBinaryCodedRegister(@truncate(instruction >> 8)),
+                0x55 => self.dumpRegistersUpTo(@truncate(instruction >> 8)),
+                0x65 => self.loadRegistersUpTo(@truncate(instruction >> 8)),
+                else => ZipError.UnknownOp,
+            },
+            else => ZipError.UnknownOp,
+        };
+    }
+
     /// FX1E - Adds the value of the register X to the address register.
     fn addRegisterToAddress(self: *Zip, register: u4) void {
         self.address_register += self.registers[register];
@@ -254,42 +363,6 @@ pub const Zip = struct {
         self.stack_ptr -= 1;
     }
 
-    /// This function runs the Zip. It will execute the instructions at the
-    /// program counter until an error is encountered. The function executes
-    /// instructions at a rate of 60Hz.
-    pub fn run(self: *Zip) !bool {
-        const stdout = std.io.getStdOut().writer();
-        var timer = try std.time.Timer.start();
-
-        zip_loop: while (true) {
-            const elapsed_nanoseconds = timer.read();
-            if (elapsed_nanoseconds * std.time.ns_per_s >
-                @as(u64, @intFromFloat(1.0 / 60.0)))
-            {
-                self.tick() catch |err| switch (err) {
-                    ZipError.StackFull => break :zip_loop try stdout.print(
-                        "The call stack is full! Cannot call another function.\n",
-                        .{},
-                    ),
-                    ZipError.UnknownOp => break :zip_loop try stdout.print(
-                        "An unknown opcode has been encountered!\n",
-                        .{},
-                    ),
-                    ZipError.IllegalReturn => break :zip_loop try stdout.print(
-                        "Trying to return from global scope!\n",
-                        .{},
-                    ),
-                    ZipError.IllegalAddress => break :zip_loop try stdout.print(
-                        "Trying to access illegal address!\n",
-                        .{},
-                    ),
-                };
-            }
-        }
-
-        return true;
-    }
-
     /// FX29 - Set the address register to the address of the sprite
     /// corresponding to the value in register X.
     fn setAddressToSprite(self: *Zip, register: u4) void {
@@ -380,78 +453,5 @@ pub const Zip = struct {
         self.memory[self.address_register] = hundreds;
         self.memory[self.address_register + 1] = tens;
         self.memory[self.address_register + 2] = ones;
-    }
-
-    /// This function executes the next instruction at the program counter.
-    /// It will increment the program counter by 2, decrement the delay and
-    /// sound timers by 1, and execute the instruction.
-    fn tick(self: *Zip) !void {
-        const instruction: u16 = std.mem.readInt(
-            u16,
-            self.memory[self.program_counter .. self.program_counter + 2][0..2],
-            .little,
-        );
-
-        try self.executeInstruction(instruction);
-
-        self.program_counter += 2;
-        self.delay_timer -= 1;
-        self.sound_timer -= 1;
-    }
-
-    /// This function executes the given instruction.
-    fn executeInstruction(self: *Zip, instruction: u16) !void {
-        return switch (instruction & 0xf000) {
-            0x0000 => switch (instruction) {
-                0x00e0 => self.clearScreen(),
-                0x0ee0 => self.returnFromSubroutine(),
-                else => ZipError.UnknownOp,
-            },
-            0x1000 => self.gotoAddress(@truncate(instruction)),
-            0x2000 => self.callSubroutine(@truncate(instruction)),
-            0x3000 => self.skipEqual(@truncate(instruction >> 8), @truncate(instruction)),
-            0x4000 => self.skipNotEqual(@truncate(instruction >> 8), @truncate(instruction)),
-            0x5000 => switch (instruction & 0x000f) {
-                0 => self.skipRegistersEqual(@truncate(instruction >> 8), @truncate(instruction >> 4)),
-                else => ZipError.UnknownOp,
-            },
-            0x6000 => self.setRegisterToValue(@truncate(instruction >> 8), @truncate(instruction)),
-            0x7000 => self.registerAddValue(@truncate(instruction >> 8), @truncate(instruction)),
-            0x8000 => switch (instruction & 0x000f) {
-                0 => self.setRegisterToRegister(@truncate(instruction >> 8), @truncate(instruction >> 4)),
-                1 => self.registerOrRegister(@truncate(instruction >> 8), @truncate(instruction >> 4)),
-                2 => self.registerAndRegister(@truncate(instruction >> 8), @truncate(instruction >> 4)),
-                3 => self.registerXorRegister(@truncate(instruction >> 8), @truncate(instruction >> 4)),
-                4 => self.registerPlusRegister(@truncate(instruction >> 8), @truncate(instruction >> 4)),
-                5 => self.registerMinusRegister(@truncate(instruction >> 8), @truncate(instruction >> 4)),
-                6 => self.registerShiftRight(@truncate(instruction >> 8), @truncate(instruction >> 4)),
-                7 => self.registerRegisterMinus(@truncate(instruction >> 8), @truncate(instruction >> 4)),
-                14 => self.registerShiftLeft(@truncate(instruction >> 8), @truncate(instruction >> 4)),
-                else => ZipError.UnknownOp,
-            },
-            0x9000 => self.skipRegistersNotEqual(@truncate(instruction >> 8), @truncate(instruction >> 4)),
-            0xa000 => self.loadAddress(@truncate(instruction)),
-            0xb000 => self.gotoAddressV0(@truncate(instruction)),
-            0xc000 => self.setRegisterToRandomAndN(@truncate(instruction >> 8), @truncate(instruction)),
-            0xd000 => self.drawSprite(@truncate(instruction >> 8), @truncate(instruction >> 4), @truncate(instruction)),
-            0xe000 => switch ((instruction & 0x00ff)) {
-                0x9e => self.skipIfKeyPressed(@truncate(instruction >> 8)),
-                0xa1 => self.skipIfKeyNotPressed(@truncate(instruction >> 8)),
-                else => ZipError.UnknownOp,
-            },
-            0xf000 => switch (instruction & 0x00ff) {
-                0x07 => self.getDelay(@truncate(instruction >> 8)),
-                0x0a => self.getKey(@truncate(instruction >> 8)),
-                0x15 => self.setDelayTimer(@truncate(instruction >> 8)),
-                0x18 => self.setSoundTimer(@truncate(instruction >> 8)),
-                0x1e => self.addRegisterToAddress(@truncate(instruction >> 8)),
-                0x29 => self.setAddressToSprite(@truncate(instruction >> 8)),
-                0x33 => self.storeBinaryCodedRegister(@truncate(instruction >> 8)),
-                0x55 => self.dumpRegistersUpTo(@truncate(instruction >> 8)),
-                0x65 => self.loadRegistersUpTo(@truncate(instruction >> 8)),
-                else => ZipError.UnknownOp,
-            },
-            else => ZipError.UnknownOp,
-        };
     }
 };
