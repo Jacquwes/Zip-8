@@ -124,6 +124,11 @@ pub const Zip = struct {
         return true;
     }
 
+    /// Load program bytes into the Zip memory starting at address 0x200.
+    pub fn loadProgram(self: *Zip, program: []const u8) void {
+        @memcpy(self.memory[0x200 .. 0x200 + program.len], program);
+    }
+
     /// This function executes the next instruction at the program counter.
     /// It will increment the program counter by 2, decrement the delay and
     /// sound timers by 1, and execute the instruction.
