@@ -1,6 +1,7 @@
 //! This module contains the code for the chip-8.
 
 const std = @import("std");
+const rl = @import("raylib");
 
 /// The error type for the Zip.
 pub const ZipError = error{
@@ -9,6 +10,9 @@ pub const ZipError = error{
     StackFull,
     UnknownOp,
 };
+
+const screen_width = 640;
+const screen_height = 320;
 
 /// Contains all the data and functions for the Zip.
 pub const Zip = struct {
@@ -60,7 +64,11 @@ pub const Zip = struct {
     };
 
     /// Initializes the registers and copies the sprites to memory.
+    /// Also initializes raylib.
     pub fn init() Zip {
+        rl.initWindow(screen_width, screen_height, "Zip-8");
+        rl.setTargetFPS(60);
+
         var zip: Zip = .{
             .address_register = 0,
             .delay_timer = 0,
