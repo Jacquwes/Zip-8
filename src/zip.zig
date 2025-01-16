@@ -129,6 +129,27 @@ pub const Zip = struct {
         @memcpy(self.memory[0x200 .. 0x200 + program.len], program);
     }
 
+    /// Print the current state of the Zip components.
+    pub fn printState(self: *const Zip) !void {
+        const stdout = std.io.getStdOut().writer();
+
+        try stdout.print("Registers:\n", .{});
+        for (self.registers, 0..) |register, i| {
+            try stdout.print("\tV{d}: {d}\n", .{ i, register });
+        }
+        try stdout.print("Address Register: {d}\n", .{self.address_register});
+        try stdout.print("Program Counter: {d}\n", .{self.program_counter});
+        try stdout.print("Stack Pointer: {d}\n", .{self.stack_ptr});
+        try stdout.print("Stack:\n", .{});
+        for (self.stack, 0..) |address, i| {
+            if (address != 0)
+                try stdout.print("\t{d}: {d}\n", .{ i, address });
+        }
+        try stdout.print("Delay Timer: {d}\n", .{self.delay_timer});
+        try stdout.print("Sound Timer: {d}\n", .{self.sound_timer});
+        try stdout.print("Current Instruction: {x}\n", .{self.memory[self.program_counter .. self.program_counter + 2]});
+    }
+
     /// This function executes the next instruction at the program counter.
     /// It will increment the program counter by 2, decrement the delay and
     /// sound timers by 1, and execute the instruction.
