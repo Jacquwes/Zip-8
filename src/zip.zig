@@ -100,6 +100,10 @@ pub const Zip = struct {
         }
         try stdout.print("Delay Timer: {d}\n", .{chip8.delay_timer});
         try stdout.print("Sound Timer: {d}\n", .{chip8.sound_timer});
-        try stdout.print("Current Instruction: {x}\n", .{chip8.memory[chip8.program_counter .. chip8.program_counter + 2]});
+        try stdout.print("Current Instruction: {x:0>4}\n", .{std.mem.readInt(
+            u16,
+            self.chip8.memory[self.chip8.program_counter .. self.chip8.program_counter + 2][0..2],
+            .big,
+        )});
     }
 };
