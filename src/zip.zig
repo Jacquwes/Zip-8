@@ -26,7 +26,7 @@ pub const Zip = struct {
         const stdout = std.io.getStdOut().writer();
         var timer = try std.time.Timer.start();
 
-        zip_loop: while (true) {
+        zip_loop: while (!rl.windowShouldClose()) {
             const elapsed_nanoseconds = timer.read();
             if (elapsed_nanoseconds * std.time.ns_per_s >
                 @as(u64, @intFromFloat(1.0 / 60.0)))
