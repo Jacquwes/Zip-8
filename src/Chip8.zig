@@ -1,6 +1,7 @@
 //! The Chip-8 virtual machine.
 
 const std = @import("std");
+const rl = @import("raylib");
 const Chip8 = @This();
 
 /// The error type for the Chip-8.
@@ -339,15 +340,25 @@ fn drawSprite(self: *Chip8, x: u4, y: u4, height: u4) void {
 /// EX9E - Skip the next opcode if the key corresponding to the value
 /// in register X is pressed.
 fn skipIfKeyPressed(self: *Chip8, register: u4) void {
-    _ = register;
-    _ = self;
+    const key = if (self.registers[register] < 10)
+        self.registers[register] + '0'
+    else
+        self.registers[register] + 'a' - 10;
+
+    if (rl.isKeyDown(@enumFromInt(key)))
+        self.program_counter += 2;
 }
 
 /// EXA1 - Skip the next opcode if the key corresponding to the value
 /// in register X is not pressed.
 fn skipIfKeyNotPressed(self: *Chip8, register: u4) void {
-    _ = register;
-    _ = self;
+    const key = if (self.registers[register] < 10)
+        self.registers[register] + '0'
+    else
+        self.registers[register] + 'a' - 10;
+
+    if (!rl.isKeyDown(@enumFromInt(key)))
+        self.program_counter += 2;
 }
 
 /// FX07 - Set the value of register X to the value of the delay timer.
