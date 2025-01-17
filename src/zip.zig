@@ -49,13 +49,9 @@ pub fn run(self: *Zip) !bool {
             },
         };
 
-        const zone2 = P.begin(@src(), "beginDrawing");
-
         rl.beginDrawing();
         defer rl.endDrawing();
         rl.clearBackground(rl.Color.black);
-
-        zone2.end();
 
         self.updateScreen();
 
@@ -72,9 +68,6 @@ pub fn run(self: *Zip) !bool {
 }
 
 pub fn updateScreen(self: *Zip) void {
-    const zone = P.begin(@src(), "updateScreen_fn");
-    defer zone.end();
-
     const chip8 = self.chip8;
     const screen = chip8.screen;
 
