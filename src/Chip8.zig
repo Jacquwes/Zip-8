@@ -37,6 +37,9 @@ sound_timer: u8,
 /// The screen buffer. It is 64x32 pixels.
 screen: [0x20 * 0x40]u1,
 
+/// Whether the program is waiting for a key press.
+waiting_for_key: ?u4 = null,
+
 /// Address of the sprites in memory.
 const sprites_address: u12 = 0;
 /// The sprites for the chip-8.
@@ -90,6 +93,9 @@ pub fn executeNextCycle(self: *Chip8) Chip8Error!void {
         self.memory[self.program_counter .. self.program_counter + 2][0..2],
         .big,
     );
+
+    if (self.waiting_for_key) |register|
+        return self.getKey(register);
 
     try self.executeOpcode(opcode);
 
@@ -368,8 +374,19 @@ fn getDelay(self: *Chip8, register: u4) void {
 
 /// FX0A - Wait for a key press and store the value in register X.
 fn getKey(self: *Chip8, register: u4) !void {
-    _ = register;
-    _ = self;
+    if (self.waiting_for_key) |_|
+        return;
+
+    const key = rl.getCharPressed();
+
+    self.registers[register] = if (key >= '0' and key <= '9')
+        @as(u8, @intCast(key - '0'))
+    else if (key >= 'a' and key <= 'f')
+        @as(u8, @intCast(key - 'a' + 10))
+    else
+        return;
+
+    self.waiting_for_key = null;
 }
 
 /// FX15 - Set the delay timer to the value of register X.
