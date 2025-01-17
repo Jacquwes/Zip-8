@@ -174,7 +174,7 @@ fn returnFromSubroutine(self: *Chip8) Chip8Error!void {
 
 /// 1NNN - Jump to the address NNN without saving the current address.
 fn gotoAddress(self: *Chip8, address: u12) void {
-    self.program_counter = address;
+    self.program_counter = address - 2;
 }
 
 /// 2NNN - Calls a subroutine at the given address. The address is pushed onto
@@ -183,7 +183,7 @@ fn gotoAddress(self: *Chip8, address: u12) void {
 fn callSubroutine(self: *Chip8, address: u12) Chip8Error!void {
     if (self.stack_ptr == 0x5f) return Chip8Error.StackFull;
 
-    self.stack[self.stack_ptr] = address;
+    self.stack[self.stack_ptr] = address - 2;
     self.stack_ptr += 1;
 }
 
@@ -303,7 +303,7 @@ fn loadAddress(self: *Chip8, address: u12) void {
 
 /// BNNN - Jump to the address NNN plus the value in register 0.
 fn gotoAddressV0(self: *Chip8, address: u12) void {
-    self.program_counter = address + self.registers[0];
+    self.program_counter = address + self.registers[0] - 2;
 }
 
 /// CXNN - Set the value of register X to a random number AND NN.
