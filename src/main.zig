@@ -2,24 +2,24 @@ const std = @import("std");
 const Zip = @import("zip.zig");
 
 pub fn main() !void {
-    var GPA = std.heap.GeneralPurposeAllocator(.{}){};
-    const allocator = GPA.allocator();
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const allocator = gpa.allocator();
     var args = try std.process.argsWithAllocator(allocator);
     defer args.deinit();
 
-    const zip_filename = args.next() orelse unreachable;
+    const exe_name = args.next() orelse unreachable;
 
-    const file_name = args.next() orelse
-        return std.debug.print("Usage: {s} [file]\n", .{zip_filename});
+    const rom_path = args.next() orelse
+        return std.debug.print("Usage: {s} [file]\n", .{exe_name});
 
-    const file = try std.fs.cwd().openFile(file_name, .{});
+    const file = try std.fs.cwd().openFile(rom_path, .{});
     defer file.close();
 
-    const program = try file.readToEndAlloc(allocator, 0x1000 - 0x200);
+    const rom = try file.readToEndAlloc(allocator, 0x1000 - 0x200);
 
     var zip = Zip.Zip.init();
 
-    zip.loadProgram(program);
+    zip.loadProgram(rom);
 
     const result = try zip.run();
     _ = result;
