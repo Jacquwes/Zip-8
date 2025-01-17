@@ -269,8 +269,7 @@ fn registerPlusRegister(self: *Chip8, x: u4, y: u4) void {
 /// If the value of register X is greater than the value of register Y, it
 /// will set the carry flag to 1.
 fn registerMinusRegister(self: *Chip8, x: u4, y: u4) void {
-    if (self.registers[x] >= self.registers[y])
-        self.registers[0xf] = 1;
+    self.registers[0xf] = if (self.registers[x] >= self.registers[y]) 1 else 0;
 
     self.registers[x] -%= self.registers[y];
 }
