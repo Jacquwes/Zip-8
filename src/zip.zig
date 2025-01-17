@@ -11,6 +11,14 @@ const screen_height = 320;
 pub const Zip = struct {
     chip8: Chip8,
 
+    pub fn init() Zip {
+        rl.initWindow(screen_width, screen_height, "Zip");
+        rl.setTargetFPS(60);
+
+        const self = Zip{ .chip8 = Chip8.init() };
+        return self;
+    }
+
     /// This function runs the Zip. It will execute the instructions at the
     /// program counter until an error is encountered. The function executes
     /// instructions at a rate of 60Hz.
