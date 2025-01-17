@@ -322,14 +322,15 @@ fn drawSprite(self: *Chip8, x: u4, y: u4, height: u4) void {
     while (y_offset < height) : (y_offset += 1) {
         var x_offset: u8 = 0;
         while (x_offset < 8) : (x_offset += 1) {
-            const currentSpritePixel = (self.memory[self.address_register + y_offset] >> (7 - @as(u3, @intCast(x_offset)))) & 1;
-            const currentScreenPixel = (self.screen[(y + y_offset) * 0x40 + (x + x_offset)]) & 1;
+            const sprite_pixel = (self.memory[self.address_register + y_offset] >> (7 - @as(u3, @intCast(x_offset)))) & 1;
+            const screen_pixel_offset = @as(u16, @intCast(y + y_offset)) * 0x40 + (x + x_offset);
+            const screen_pixel = (self.screen[screen_pixel_offset]) & 1;
 
-            if (currentSpritePixel == 1 and currentScreenPixel == 1) {
+            if (sprite_pixel == 1 and screen_pixel == 1) {
                 self.registers[0xf] = 1;
-                self.screen[(y + y_offset) * 0x40 + (x + x_offset)] = 0;
+                self.screen[screen_pixel_offset] = 0;
             } else {
-                self.screen[(y + y_offset) * 0x40 + (x + x_offset)] = 1;
+                self.screen[screen_pixel_offset] = 1;
             }
         }
     }
