@@ -32,7 +32,7 @@ pub const Zip = struct {
                 @as(u64, @intFromFloat(1.0 / 60.0)))
             {
                 self.chip8.executeNextCycle() catch |err| switch (err) {
-                    .StackFull => {
+                    error.StackFull => {
                         try stdout.print(
                             "The call stack is full! Cannot call another function.\n",
                             .{},
@@ -40,7 +40,7 @@ pub const Zip = struct {
                         try self.dumpState();
                         break :zip_loop;
                     },
-                    .UnknownOp => {
+                    error.UnknownOp => {
                         try stdout.print(
                             "An unknown opcode has been encountered!\n",
                             .{},
@@ -48,7 +48,7 @@ pub const Zip = struct {
                         try self.dumpState();
                         break :zip_loop;
                     },
-                    .IllegalReturn => {
+                    error.IllegalReturn => {
                         try stdout.print(
                             "Trying to return from global scope!\n",
                             .{},
@@ -56,7 +56,7 @@ pub const Zip = struct {
                         try self.dumpState();
                         break :zip_loop;
                     },
-                    .IllegalAddress => {
+                    error.IllegalAddress => {
                         try stdout.print(
                             "Trying to access illegal address!\n",
                             .{},
