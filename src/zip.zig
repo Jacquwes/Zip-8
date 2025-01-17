@@ -78,7 +78,7 @@ pub const Zip = struct {
 
     /// Load program bytes into the Zip memory starting at address 0x200.
     pub fn loadProgram(self: *Zip, program: []const u8) void {
-        @memcpy(self.memory[0x200 .. 0x200 + program.len], program);
+        @memcpy(self.chip8.memory[0x200 .. 0x200 + program.len], program);
     }
 
     /// Print the current state of the Zip components.
