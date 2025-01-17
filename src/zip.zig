@@ -100,13 +100,13 @@ pub const Zip = struct {
             if (elapsed_nanoseconds * std.time.ns_per_s >
                 @as(u64, @intFromFloat(1.0 / 60.0)))
             {
-                self.tick() catch |err| switch (err) {
+                self.executeNextCycle() catch |err| switch (err) {
                     ZipError.StackFull => {
                         try stdout.print(
                             "The call stack is full! Cannot call another function.\n",
                             .{},
                         );
-                        try self.printState();
+                        try self.dumpState();
                         break :zip_loop;
                     },
                     ZipError.UnknownOp => {
@@ -114,7 +114,7 @@ pub const Zip = struct {
                             "An unknown opcode has been encountered!\n",
                             .{},
                         );
-                        try self.printState();
+                        try self.dumpState();
                         break :zip_loop;
                     },
                     ZipError.IllegalReturn => {
@@ -122,7 +122,7 @@ pub const Zip = struct {
                             "Trying to return from global scope!\n",
                             .{},
                         );
-                        try self.printState();
+                        try self.dumpState();
                         break :zip_loop;
                     },
                     ZipError.IllegalAddress => {
@@ -130,7 +130,7 @@ pub const Zip = struct {
                             "Trying to access illegal address!\n",
                             .{},
                         );
-                        try self.printState();
+                        try self.dumpState();
                         break :zip_loop;
                     },
                 };
@@ -151,7 +151,7 @@ pub const Zip = struct {
     }
 
     /// Print the current state of the Zip components.
-    pub fn printState(self: *const Zip) !void {
+    pub fn dumpState(self: *const Zip) !void {
         const stdout = std.io.getStdOut().writer();
 
         try stdout.print("Registers:\n", .{});
@@ -174,7 +174,7 @@ pub const Zip = struct {
     /// This function executes the next instruction at the program counter.
     /// It will increment the program counter by 2, decrement the delay and
     /// sound timers by 1, and execute the instruction.
-    fn tick(self: *Zip) !void {
+    fn executeNextCycle(self: *Zip) !void {
         const instruction: u16 = std.mem.readInt(
             u16,
             self.memory[self.program_counter .. self.program_counter + 2][0..2],
@@ -191,55 +191,55 @@ pub const Zip = struct {
     }
 
     /// This function executes the given instruction.
-    fn executeInstruction(self: *Zip, instruction: u16) !void {
-        return switch (instruction & 0xf000) {
-            0x0000 => switch (instruction) {
+    fn executeInstruction(self: *Zip, opcode: u16) !void {
+        return switch (opcode & 0xf000) {
+            0x0000 => switch (opcode) {
                 0x00e0 => self.clearScreen(),
                 0x0ee0 => self.returnFromSubroutine(),
                 else => ZipError.UnknownOp,
             },
-            0x1000 => self.gotoAddress(@truncate(instruction)),
-            0x2000 => self.callSubroutine(@truncate(instruction)),
-            0x3000 => self.skipEqual(@truncate(instruction >> 8), @truncate(instruction)),
-            0x4000 => self.skipNotEqual(@truncate(instruction >> 8), @truncate(instruction)),
-            0x5000 => switch (instruction & 0x000f) {
-                0 => self.skipRegistersEqual(@truncate(instruction >> 8), @truncate(instruction >> 4)),
+            0x1000 => self.gotoAddress(@truncate(opcode)),
+            0x2000 => self.callSubroutine(@truncate(opcode)),
+            0x3000 => self.skipEqual(@truncate(opcode >> 8), @truncate(opcode)),
+            0x4000 => self.skipNotEqual(@truncate(opcode >> 8), @truncate(opcode)),
+            0x5000 => switch (opcode & 0x000f) {
+                0 => self.skipRegistersEqual(@truncate(opcode >> 8), @truncate(opcode >> 4)),
                 else => ZipError.UnknownOp,
             },
-            0x6000 => self.setRegisterToValue(@truncate(instruction >> 8), @truncate(instruction)),
-            0x7000 => self.registerAddValue(@truncate(instruction >> 8), @truncate(instruction)),
-            0x8000 => switch (instruction & 0x000f) {
-                0 => self.setRegisterToRegister(@truncate(instruction >> 8), @truncate(instruction >> 4)),
-                1 => self.registerOrRegister(@truncate(instruction >> 8), @truncate(instruction >> 4)),
-                2 => self.registerAndRegister(@truncate(instruction >> 8), @truncate(instruction >> 4)),
-                3 => self.registerXorRegister(@truncate(instruction >> 8), @truncate(instruction >> 4)),
-                4 => self.registerPlusRegister(@truncate(instruction >> 8), @truncate(instruction >> 4)),
-                5 => self.registerMinusRegister(@truncate(instruction >> 8), @truncate(instruction >> 4)),
-                6 => self.registerShiftRight(@truncate(instruction >> 8), @truncate(instruction >> 4)),
-                7 => self.registerRegisterMinus(@truncate(instruction >> 8), @truncate(instruction >> 4)),
-                14 => self.registerShiftLeft(@truncate(instruction >> 8), @truncate(instruction >> 4)),
+            0x6000 => self.setRegisterToValue(@truncate(opcode >> 8), @truncate(opcode)),
+            0x7000 => self.registerAddValue(@truncate(opcode >> 8), @truncate(opcode)),
+            0x8000 => switch (opcode & 0x000f) {
+                0 => self.setRegisterToRegister(@truncate(opcode >> 8), @truncate(opcode >> 4)),
+                1 => self.registerOrRegister(@truncate(opcode >> 8), @truncate(opcode >> 4)),
+                2 => self.registerAndRegister(@truncate(opcode >> 8), @truncate(opcode >> 4)),
+                3 => self.registerXorRegister(@truncate(opcode >> 8), @truncate(opcode >> 4)),
+                4 => self.registerPlusRegister(@truncate(opcode >> 8), @truncate(opcode >> 4)),
+                5 => self.registerMinusRegister(@truncate(opcode >> 8), @truncate(opcode >> 4)),
+                6 => self.registerShiftRight(@truncate(opcode >> 8), @truncate(opcode >> 4)),
+                7 => self.registerRegisterMinus(@truncate(opcode >> 8), @truncate(opcode >> 4)),
+                14 => self.registerShiftLeft(@truncate(opcode >> 8), @truncate(opcode >> 4)),
                 else => ZipError.UnknownOp,
             },
-            0x9000 => self.skipRegistersNotEqual(@truncate(instruction >> 8), @truncate(instruction >> 4)),
-            0xa000 => self.loadAddress(@truncate(instruction)),
-            0xb000 => self.gotoAddressV0(@truncate(instruction)),
-            0xc000 => self.setRegisterToRandomAndN(@truncate(instruction >> 8), @truncate(instruction)),
-            0xd000 => self.drawSprite(@truncate(instruction >> 8), @truncate(instruction >> 4), @truncate(instruction)),
-            0xe000 => switch ((instruction & 0x00ff)) {
-                0x9e => self.skipIfKeyPressed(@truncate(instruction >> 8)),
-                0xa1 => self.skipIfKeyNotPressed(@truncate(instruction >> 8)),
+            0x9000 => self.skipRegistersNotEqual(@truncate(opcode >> 8), @truncate(opcode >> 4)),
+            0xa000 => self.loadAddress(@truncate(opcode)),
+            0xb000 => self.gotoAddressV0(@truncate(opcode)),
+            0xc000 => self.setRegisterToRandomAndN(@truncate(opcode >> 8), @truncate(opcode)),
+            0xd000 => self.drawSprite(@truncate(opcode >> 8), @truncate(opcode >> 4), @truncate(opcode)),
+            0xe000 => switch ((opcode & 0x00ff)) {
+                0x9e => self.skipIfKeyPressed(@truncate(opcode >> 8)),
+                0xa1 => self.skipIfKeyNotPressed(@truncate(opcode >> 8)),
                 else => ZipError.UnknownOp,
             },
-            0xf000 => switch (instruction & 0x00ff) {
-                0x07 => self.getDelay(@truncate(instruction >> 8)),
-                0x0a => self.getKey(@truncate(instruction >> 8)),
-                0x15 => self.setDelayTimer(@truncate(instruction >> 8)),
-                0x18 => self.setSoundTimer(@truncate(instruction >> 8)),
-                0x1e => self.addRegisterToAddress(@truncate(instruction >> 8)),
-                0x29 => self.setAddressToSprite(@truncate(instruction >> 8)),
-                0x33 => self.storeBinaryCodedRegister(@truncate(instruction >> 8)),
-                0x55 => self.dumpRegistersUpTo(@truncate(instruction >> 8)),
-                0x65 => self.loadRegistersUpTo(@truncate(instruction >> 8)),
+            0xf000 => switch (opcode & 0x00ff) {
+                0x07 => self.getDelay(@truncate(opcode >> 8)),
+                0x0a => self.getKey(@truncate(opcode >> 8)),
+                0x15 => self.setDelayTimer(@truncate(opcode >> 8)),
+                0x18 => self.setSoundTimer(@truncate(opcode >> 8)),
+                0x1e => self.addRegisterToAddress(@truncate(opcode >> 8)),
+                0x29 => self.setAddressToSprite(@truncate(opcode >> 8)),
+                0x33 => self.storeBinaryCodedRegister(@truncate(opcode >> 8)),
+                0x55 => self.dumpRegistersUpTo(@truncate(opcode >> 8)),
+                0x65 => self.loadRegistersUpTo(@truncate(opcode >> 8)),
                 else => ZipError.UnknownOp,
             },
             else => ZipError.UnknownOp,
@@ -271,18 +271,18 @@ pub const Zip = struct {
     /// tall. The sprite is XORed with the screen buffer. If a pixel is
     /// erased, the carry flag is set to 1.
     fn drawSprite(self: *Zip, x: u4, y: u4, height: u4) void {
-        var iY: u8 = 0;
-        while (iY < height) : (iY += 1) {
-            var iX: u8 = 0;
-            while (iX < 8) : (iX += 1) {
-                const currentSpritePixel = (self.memory[self.address_register + iY] >> (7 - @as(u3, @intCast(iX)))) & 1;
-                const currentScreenPixel = (self.screen[(y + iY) * 0x40 + (x + iX)]) & 1;
+        var y_offset: u8 = 0;
+        while (y_offset < height) : (y_offset += 1) {
+            var x_offset: u8 = 0;
+            while (x_offset < 8) : (x_offset += 1) {
+                const currentSpritePixel = (self.memory[self.address_register + y_offset] >> (7 - @as(u3, @intCast(x_offset)))) & 1;
+                const currentScreenPixel = (self.screen[(y + y_offset) * 0x40 + (x + x_offset)]) & 1;
 
                 if (currentSpritePixel == 1 and currentScreenPixel == 1) {
                     self.registers[0xf] = 1;
-                    self.screen[(y + iY) * 0x40 + (x + iX)] = 0;
+                    self.screen[(y + y_offset) * 0x40 + (x + x_offset)] = 0;
                 } else {
-                    self.screen[(y + iY) * 0x40 + (x + iX)] = 1;
+                    self.screen[(y + y_offset) * 0x40 + (x + x_offset)] = 1;
                 }
             }
         }
