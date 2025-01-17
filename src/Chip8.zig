@@ -65,7 +65,7 @@ pub fn init() Chip8 {
         .address_register = 0,
         .delay_timer = 0,
         .memory = [_]u8{0} ** 0x1000,
-        .program_counter = 0,
+        .program_counter = 0x200,
         .registers = [_]u8{0} ** 0x10,
         .screen = [_]u1{0} ** (0x20 * 0x40),
         .sound_timer = 0,
