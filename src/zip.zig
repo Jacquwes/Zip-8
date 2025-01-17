@@ -5,15 +5,15 @@ const Chip8 = @import("Chip8.zig");
 const rl = @import("raylib");
 const Zip = @This();
 
-const screen_width = 640;
-const screen_height = 320;
+const window_width = 1000;
+const window_height = 500;
 
 /// Contains all the data and functions for the Zip.
 chip8: Chip8,
 
 pub fn init() Zip {
-    rl.initWindow(screen_width, screen_height, "Zip");
-    rl.setTargetFPS(60);
+    rl.initWindow(window_width, window_height, "Zip");
+    rl.setTargetFPS(300);
 
     const self = Zip{ .chip8 = Chip8.init() };
     return self;
@@ -24,56 +24,68 @@ pub fn init() Zip {
 /// instructions at a rate of 60Hz.
 pub fn run(self: *Zip) !bool {
     const stdout = std.io.getStdOut().writer();
-    var timer = try std.time.Timer.start();
 
     zip_loop: while (!rl.windowShouldClose()) {
-        const elapsed_nanoseconds = timer.read();
-        if (elapsed_nanoseconds * std.time.ns_per_s >
-            @as(u64, @intFromFloat(1.0 / 60.0)))
-        {
-            self.chip8.executeNextCycle() catch |err| switch (err) {
-                error.StackFull => {
-                    try stdout.print(
-                        "The call stack is full! Cannot call another function.\n",
-                        .{},
-                    );
-                    try self.dumpState();
-                    break :zip_loop;
-                },
-                error.UnknownOp => {
-                    try stdout.print(
-                        "An unknown opcode has been encountered!\n",
-                        .{},
-                    );
-                    try self.dumpState();
-                    break :zip_loop;
-                },
-                error.IllegalReturn => {
-                    try stdout.print(
-                        "Trying to return from global scope!\n",
-                        .{},
-                    );
-                    try self.dumpState();
-                    break :zip_loop;
-                },
-                error.IllegalAddress => {
-                    try stdout.print(
-                        "Trying to access illegal address!\n",
-                        .{},
-                    );
-                    try self.dumpState();
-                    break :zip_loop;
-                },
-            };
+        self.chip8.executeNextCycle() catch |err| switch (err) {
+            error.StackFull => {
+                try stdout.print("The call stack is full! Cannot call another function.\n", .{});
+                try self.dumpState();
+                break :zip_loop;
+            },
+            error.UnknownOp => {
+                try stdout.print("An unknown opcode has been encountered!\n", .{});
+                try self.dumpState();
+                break :zip_loop;
+            },
+            error.IllegalReturn => {
+                try stdout.print("Trying to return from global scope!\n", .{});
+                try self.dumpState();
+                break :zip_loop;
+            },
+            error.IllegalAddress => {
+                try stdout.print("Trying to access illegal address!\n", .{});
+                try self.dumpState();
+                break :zip_loop;
+            },
+        };
 
-            rl.beginDrawing();
-            defer rl.endDrawing();
+        const zone2 = P.begin(@src(), "beginDrawing");
 
-            rl.clearBackground(rl.Color.white);
-        }
+        rl.beginDrawing();
+        defer rl.endDrawing();
+        rl.clearBackground(rl.Color.black);
+
+        zone2.end();
+
+        self.updateScreen();
+
+        rl.drawText(
+            rl.textFormat("FPS: %d", .{rl.getFPS()}),
+            Chip8.screen_width * 10 + 5,
+            5,
+            20,
+            rl.Color.light_gray,
+        );
     }
 
     return true;
+}
+
+pub fn updateScreen(self: *Zip) void {
+    const zone = P.begin(@src(), "updateScreen_fn");
+    defer zone.end();
+
+    const chip8 = self.chip8;
+    const screen = chip8.screen;
+
+    for (screen, 0..) |pixel, i| {
+        const x_offset = @as(i32, @intCast(i % Chip8.screen_width)) * 10;
+        const y_offset = @as(i32, @intCast(i / Chip8.screen_width)) * 10;
+
+        if (pixel == 1) {
+            rl.drawRectangle(x_offset, y_offset, 10, 10, rl.Color.light_gray);
+        }
+    }
 }
 
 /// Load program bytes into the Zip memory starting at address 0x200.

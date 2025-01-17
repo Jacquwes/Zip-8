@@ -12,10 +12,18 @@ pub const Chip8Error = error{
     UnknownOp,
 };
 
+pub const memory_size = 0x1000;
+pub const register_count = 0x10;
+pub const reserved_mem_size = 0x200;
+pub const screen_width = 0x40;
+pub const screen_height = 0x20;
+const sprites_address = 0;
+pub const stack_size = 0x60;
+
 /// 4096 bytes of memory.
-memory: [0x1000]u8,
+memory: [memory_size]u8,
 /// 16 general purpose registers.
-registers: [0x10]u8,
+registers: [register_count]u8,
 
 /// This register is used to store memory addresses used by the running
 /// program.
@@ -25,7 +33,7 @@ program_counter: u16,
 
 /// The stack stores the address that the program should return to after
 /// a subroutine call.
-stack: [0x60]u12,
+stack: [stack_size]u12,
 /// The stack pointer points to the top of the stack.
 stack_ptr: u8,
 
@@ -35,13 +43,11 @@ delay_timer: u8,
 sound_timer: u8,
 
 /// The screen buffer. It is 64x32 pixels.
-screen: [0x20 * 0x40]u1,
+screen: [screen_height * screen_width]u1,
 
 /// Whether the program is waiting for a key press.
 waiting_for_key: ?u4 = null,
 
-/// Address of the sprites in memory.
-const sprites_address: u12 = 0;
 /// The sprites for the chip-8.
 const sprites = [0x10][5]u8{
     [_]u8{ 0xf0, 0x90, 0x90, 0x90, 0xf0 }, // 0
@@ -68,12 +74,12 @@ pub fn init() Chip8 {
     var chip8: Chip8 = .{
         .address_register = 0,
         .delay_timer = 0,
-        .memory = [_]u8{0} ** 0x1000,
-        .program_counter = 0x200,
-        .registers = [_]u8{0} ** 0x10,
-        .screen = [_]u1{0} ** (0x20 * 0x40),
+        .memory = [_]u8{0} ** memory_size,
+        .program_counter = reserved_mem_size,
+        .registers = [_]u8{0} ** register_count,
+        .screen = [_]u1{0} ** (screen_height * screen_width),
         .sound_timer = 0,
-        .stack = [_]u12{0} ** 0x60,
+        .stack = [_]u12{0} ** stack_size,
         .stack_ptr = 0,
     };
 
@@ -166,7 +172,7 @@ fn executeOpcode(self: *Chip8, opcode: u16) Chip8Error!void {
 
 /// 00E0 - Clears the screen buffer.
 fn clearScreen(self: *Chip8) void {
-    self.screen = [_]u1{0} ** (0x20 * 0x40);
+    self.screen = [_]u1{0} ** (screen_height * screen_width);
 }
 
 /// 00EE - Returns from a subroutine. Calling this function will pop the
@@ -415,7 +421,7 @@ fn setAddressToSprite(self: *Chip8, register: u4) void {
 /// The hundreds digit is stored at the address, the tens digit is stored
 /// at the address + 1, and the ones digit is stored at the address + 2.
 fn storeBinaryCodedRegister(self: *Chip8, x: u4) !void {
-    if (self.address_register > 0x1000 - 3)
+    if (self.address_register > memory_size - 3)
         return Chip8Error.IllegalAddress;
 
     const value = self.registers[x];
