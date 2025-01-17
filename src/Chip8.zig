@@ -83,7 +83,7 @@ pub fn init() Chip8 {
 /// This function executes the next opcode at the program counter.
 /// It will increment the program counter by 2, decrement the delay and
 /// sound timers by 1, and execute the opcode.
-fn executeNextCycle(self: *Chip8) !void {
+pub fn executeNextCycle(self: *Chip8) !void {
     const opcode: u16 = std.mem.readInt(
         u16,
         self.memory[self.program_counter .. self.program_counter + 2][0..2],
