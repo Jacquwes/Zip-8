@@ -101,23 +101,44 @@ pub const Zip = struct {
                 @as(u64, @intFromFloat(1.0 / 60.0)))
             {
                 self.tick() catch |err| switch (err) {
-                    ZipError.StackFull => break :zip_loop try stdout.print(
-                        "The call stack is full! Cannot call another function.\n",
-                        .{},
-                    ),
-                    ZipError.UnknownOp => break :zip_loop try stdout.print(
-                        "An unknown opcode has been encountered!\n",
-                        .{},
-                    ),
-                    ZipError.IllegalReturn => break :zip_loop try stdout.print(
-                        "Trying to return from global scope!\n",
-                        .{},
-                    ),
-                    ZipError.IllegalAddress => break :zip_loop try stdout.print(
-                        "Trying to access illegal address!\n",
-                        .{},
-                    ),
+                    ZipError.StackFull => {
+                        try stdout.print(
+                            "The call stack is full! Cannot call another function.\n",
+                            .{},
+                        );
+                        try self.printState();
+                        break :zip_loop;
+                    },
+                    ZipError.UnknownOp => {
+                        try stdout.print(
+                            "An unknown opcode has been encountered!\n",
+                            .{},
+                        );
+                        try self.printState();
+                        break :zip_loop;
+                    },
+                    ZipError.IllegalReturn => {
+                        try stdout.print(
+                            "Trying to return from global scope!\n",
+                            .{},
+                        );
+                        try self.printState();
+                        break :zip_loop;
+                    },
+                    ZipError.IllegalAddress => {
+                        try stdout.print(
+                            "Trying to access illegal address!\n",
+                            .{},
+                        );
+                        try self.printState();
+                        break :zip_loop;
+                    },
                 };
+
+                rl.beginDrawing();
+                defer rl.endDrawing();
+
+                rl.clearBackground(rl.Color.white);
             }
         }
 
@@ -163,8 +184,10 @@ pub const Zip = struct {
         try self.executeInstruction(instruction);
 
         self.program_counter += 2;
-        self.delay_timer -= 1;
-        self.sound_timer -= 1;
+        if (self.delay_timer > 0)
+            self.delay_timer -= 1;
+        if (self.sound_timer > 0)
+            self.sound_timer -= 1;
     }
 
     /// This function executes the given instruction.
