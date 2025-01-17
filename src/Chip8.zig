@@ -227,7 +227,7 @@ fn setRegisterToValue(self: *Chip8, register: u4, value: u8) void {
 
 /// 7XNN - Adds the value NN to the value in register X.
 fn registerAddValue(self: *Chip8, register: u4, value: u8) void {
-    const result: u8 = @truncate((self.registers[register] + value));
+    const result: u8 = self.registers[register] +% value;
 
     self.registers[register] = result;
 }
@@ -258,7 +258,7 @@ fn registerXorRegister(self: *Chip8, x: u4, y: u4) void {
 /// 8XY4 - Adds the value of register Y to the value of register X. If the
 /// result is greater than 255, it will set the carry flag to 1.
 fn registerPlusRegister(self: *Chip8, x: u4, y: u4) void {
-    const result: u16 = self.registers[x] + self.registers[y];
+    const result: u9 = self.registers[x] +% self.registers[y];
     if (result > 0xff)
         self.registers[0xf] = 1;
 
@@ -272,7 +272,7 @@ fn registerMinusRegister(self: *Chip8, x: u4, y: u4) void {
     if (self.registers[x] >= self.registers[y])
         self.registers[0xf] = 1;
 
-    self.registers[x] -= self.registers[y];
+    self.registers[x] -%= self.registers[y];
 }
 
 /// 8XY6 - Shifts the value of register X to the right by 1. The least
