@@ -331,19 +331,25 @@ fn setRegisterToRandomAndN(self: *Chip8, x: u4, n: u8) void {
 /// erased, the carry flag is set to 1.
 fn drawSprite(self: *Chip8, x: u4, y: u4, height: u4) void {
     var y_offset: u8 = 0;
+
     while (y_offset < height) : (y_offset += 1) {
+        const y_coord = (self.registers[y] + y_offset) % screen_height;
         var x_offset: u8 = 0;
         while (x_offset < 8) : (x_offset += 1) {
-            const sprite_pixel = (self.memory[self.address_register + y_offset] >> (7 - @as(u3, @intCast(x_offset)))) & 1;
-            const screen_pixel_offset = @as(u16, @intCast(y + y_offset)) * 0x40 + (x + x_offset);
-            const screen_pixel = (self.screen[screen_pixel_offset]) & 1;
+            const x_coord = (self.registers[x] + x_offset) % screen_width;
 
+            const sprite_pixel: u1 = @truncate(
+                self.memory[self.address_register + y_offset] >> (7 - @as(u3, @intCast(x_offset))),
+            );
+            const screen_pixel_offset = @as(u16, @intCast(y_coord)) * screen_width + x_coord;
+            const screen_pixel: u1 = (self.screen[screen_pixel_offset]) & 1;
+
+            const new_pixel: u1 = (sprite_pixel ^ screen_pixel) & 1;
             if (sprite_pixel == 1 and screen_pixel == 1) {
                 self.registers[0xf] = 1;
-                self.screen[screen_pixel_offset] = 0;
-            } else {
-                self.screen[screen_pixel_offset] = 1;
             }
+
+            self.screen[screen_pixel_offset] = new_pixel;
         }
     }
 }
