@@ -87,7 +87,7 @@ pub fn executeNextCycle(self: *Chip8) Chip8Error!void {
     const opcode: u16 = std.mem.readInt(
         u16,
         self.memory[self.program_counter .. self.program_counter + 2][0..2],
-        .little,
+        .big,
     );
 
     try self.executeOpcode(opcode);
