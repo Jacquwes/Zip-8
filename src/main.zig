@@ -1,5 +1,5 @@
 const std = @import("std");
-const Zip = @import("zip.zig");
+const Zip = @import("Zip.zig");
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -17,7 +17,7 @@ pub fn main() !void {
 
     const rom = try file.readToEndAlloc(allocator, 0x1000 - 0x200);
 
-    var zip = Zip.Zip.init();
+    var zip = Zip.init();
 
     zip.loadProgram(rom);
 
