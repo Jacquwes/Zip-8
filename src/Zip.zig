@@ -1,21 +1,34 @@
 //! This module contains the code for the chip-8.
 
 const std = @import("std");
-const Chip8 = @import("Chip8.zig");
 const rl = @import("raylib");
+const rg = @import("raygui");
+const Chip8 = @import("Chip8.zig");
 const Zip = @This();
 
-const window_width = 1000;
-const window_height = 500;
+const window_width = Chip8.screen_width * 10 + 200;
+const window_height = Chip8.screen_height * 10;
+const controls_offset = Chip8.screen_width * 10 + 5;
+
+pub const ExecutionState = enum {
+    Running,
+    Paused,
+};
 
 /// Contains all the data and functions for the Zip.
 chip8: Chip8,
+
+/// The current state of the Zip.
+execution_state: ExecutionState,
 
 pub fn init() Zip {
     rl.initWindow(window_width, window_height, "Zip");
     rl.setTargetFPS(300);
 
-    const self = Zip{ .chip8 = Chip8.init() };
+    const self = Zip{
+        .chip8 = Chip8.init(),
+        .execution_state = .Paused,
+    };
     return self;
 }
 
@@ -23,45 +36,69 @@ pub fn init() Zip {
 /// program counter until an error is encountered. The function executes
 /// instructions at a rate of 60Hz.
 pub fn run(self: *Zip) !bool {
-    const stdout = std.io.getStdOut().writer();
-
     zip_loop: while (!rl.windowShouldClose()) {
-        self.chip8.executeNextCycle() catch |err| switch (err) {
-            error.StackFull => {
-                try stdout.print("The call stack is full! Cannot call another function.\n", .{});
-                try self.dumpState();
-                break :zip_loop;
-            },
-            error.UnknownOp => {
-                try stdout.print("An unknown opcode has been encountered!\n", .{});
-                try self.dumpState();
-                break :zip_loop;
-            },
-            error.IllegalReturn => {
-                try stdout.print("Trying to return from global scope!\n", .{});
-                try self.dumpState();
-                break :zip_loop;
-            },
-            error.IllegalAddress => {
-                try stdout.print("Trying to access illegal address!\n", .{});
-                try self.dumpState();
-                break :zip_loop;
-            },
-        };
-
         rl.beginDrawing();
         defer rl.endDrawing();
-        rl.clearBackground(rl.Color.black);
+
+        rl.clearBackground(rl.Color.dark_gray);
+
+        rg.guiSetStyle(
+            .default,
+            rg.GuiDefaultProperty.text_size,
+            20,
+        );
+
+        // This will only draw step button if not running
+        const should_execute = self.execution_state == .Running or
+            rg.guiButton(.{
+            .height = 40,
+            .width = 70,
+            .x = controls_offset + 80,
+            .y = 30,
+        }, "Step") != 0;
+
+        if (should_execute) {
+            self.chip8.executeNextCycle() catch |err| switch (err) {
+                error.StackFull => {
+                    std.debug.print("The call stack is full! Cannot call another function.\n", .{});
+                    try self.dumpState();
+                    break :zip_loop;
+                },
+                error.UnknownOp => {
+                    std.debug.print("An unknown opcode has been encountered!\n", .{});
+                    try self.dumpState();
+                    break :zip_loop;
+                },
+                error.IllegalReturn => {
+                    std.debug.print("Trying to return from global scope!\n", .{});
+                    try self.dumpState();
+                    break :zip_loop;
+                },
+                error.IllegalAddress => {
+                    std.debug.print("Trying to access illegal address!\n", .{});
+                    try self.dumpState();
+                    break :zip_loop;
+                },
+            };
+        }
 
         self.updateScreen();
 
         rl.drawText(
             rl.textFormat("FPS: %d", .{rl.getFPS()}),
-            Chip8.screen_width * 10 + 5,
+            controls_offset,
             5,
             20,
             rl.Color.light_gray,
         );
+        if (rg.guiButton(.{
+            .height = 40,
+            .width = 70,
+            .x = controls_offset,
+            .y = 30,
+        }, if (self.execution_state == .Running) "Pause" else "Run") != 0) {
+            self.execution_state = if (self.execution_state == .Running) .Paused else .Running;
+        }
     }
 
     return true;
@@ -71,12 +108,26 @@ pub fn updateScreen(self: *Zip) void {
     const chip8 = self.chip8;
     const screen = chip8.screen;
 
+    rl.drawRectangle(
+        0,
+        0,
+        Chip8.screen_width * 10,
+        Chip8.screen_height * 10,
+        rl.Color.black,
+    );
+
     for (screen, 0..) |pixel, i| {
         const x_offset = @as(i32, @intCast(i % Chip8.screen_width)) * 10;
         const y_offset = @as(i32, @intCast(i / Chip8.screen_width)) * 10;
 
         if (pixel == 1) {
-            rl.drawRectangle(x_offset, y_offset, 10, 10, rl.Color.light_gray);
+            rl.drawRectangle(
+                x_offset,
+                y_offset,
+                10,
+                10,
+                rl.Color.light_gray,
+            );
         }
     }
 }
