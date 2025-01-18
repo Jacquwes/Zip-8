@@ -8,6 +8,7 @@ const Zip = @This();
 
 const window_width = Chip8.screen_width * 10 + 200;
 const window_height = Chip8.screen_height * 10;
+const controls_offset = Chip8.screen_width * 10 + 5;
 
 pub const ExecutionState = enum {
     Running,
@@ -35,28 +36,26 @@ pub fn init() Zip {
 /// program counter until an error is encountered. The function executes
 /// instructions at a rate of 60Hz.
 pub fn run(self: *Zip) !bool {
-    const stdout = std.io.getStdOut().writer();
-
     zip_loop: while (!rl.windowShouldClose()) {
         if (self.state == .Running) {
             self.chip8.executeNextCycle() catch |err| switch (err) {
                 error.StackFull => {
-                    try stdout.write("The call stack is full! Cannot call another function.\n");
+                    std.debug.print("The call stack is full! Cannot call another function.\n", .{});
                     try self.dumpState();
                     break :zip_loop;
                 },
                 error.UnknownOp => {
-                    try stdout.write("An unknown opcode has been encountered!\n");
+                    std.debug.print("An unknown opcode has been encountered!\n", .{});
                     try self.dumpState();
                     break :zip_loop;
                 },
                 error.IllegalReturn => {
-                    try stdout.write("Trying to return from global scope!\n");
+                    std.debug.print("Trying to return from global scope!\n", .{});
                     try self.dumpState();
                     break :zip_loop;
                 },
                 error.IllegalAddress => {
-                    try stdout.write("Trying to access illegal address!\n");
+                    std.debug.print("Trying to access illegal address!\n", .{});
                     try self.dumpState();
                     break :zip_loop;
                 },
@@ -71,11 +70,20 @@ pub fn run(self: *Zip) !bool {
 
         rl.drawText(
             rl.textFormat("FPS: %d", .{rl.getFPS()}),
-            Chip8.screen_width * 10 + 5,
+            controls_offset,
             5,
             20,
             rl.Color.light_gray,
         );
+
+        if (rg.guiButton(.{
+            .height = 40,
+            .width = 70,
+            .x = controls_offset,
+            .y = 30,
+        }, if (self.state == .Running) "Pause" else "Run") != 0) {
+            self.state = if (self.state == .Running) .Paused else .Running;
+        }
     }
 
     return true;
