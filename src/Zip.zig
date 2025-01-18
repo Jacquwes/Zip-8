@@ -9,7 +9,7 @@ const Zip = @This();
 const window_width = Chip8.screen_width * 10 + 200;
 const window_height = Chip8.screen_height * 10;
 
-pub const ZipState = enum {
+pub const ExecutionState = enum {
     Running,
     Paused,
 };
@@ -18,7 +18,7 @@ pub const ZipState = enum {
 chip8: Chip8,
 
 /// The current state of the Zip.
-state: ZipState,
+state: ExecutionState,
 
 pub fn init() Zip {
     rl.initWindow(window_width, window_height, "Zip");
