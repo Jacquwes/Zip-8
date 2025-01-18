@@ -27,7 +27,7 @@ pub fn init() Zip {
 
     const self = Zip{
         .chip8 = Chip8.init(),
-        .state = .Paused,
+        .execution_state = .Paused,
     };
     return self;
 }
@@ -64,7 +64,13 @@ pub fn run(self: *Zip) !bool {
 
         rl.beginDrawing();
         defer rl.endDrawing();
-        rl.clearBackground(rl.Color.black);
+        rl.clearBackground(rl.Color.dark_gray);
+
+        rg.guiSetStyle(
+            .default,
+            rg.GuiDefaultProperty.text_size,
+            20,
+        );
 
         self.updateScreen();
 
@@ -75,7 +81,6 @@ pub fn run(self: *Zip) !bool {
             20,
             rl.Color.light_gray,
         );
-
         if (rg.guiButton(.{
             .height = 40,
             .width = 70,
@@ -93,12 +98,26 @@ pub fn updateScreen(self: *Zip) void {
     const chip8 = self.chip8;
     const screen = chip8.screen;
 
+    rl.drawRectangle(
+        0,
+        0,
+        Chip8.screen_width * 10,
+        Chip8.screen_height * 10,
+        rl.Color.black,
+    );
+
     for (screen, 0..) |pixel, i| {
         const x_offset = @as(i32, @intCast(i % Chip8.screen_width)) * 10;
         const y_offset = @as(i32, @intCast(i / Chip8.screen_width)) * 10;
 
         if (pixel == 1) {
-            rl.drawRectangle(x_offset, y_offset, 10, 10, rl.Color.light_gray);
+            rl.drawRectangle(
+                x_offset,
+                y_offset,
+                10,
+                10,
+                rl.Color.light_gray,
+            );
         }
     }
 }
