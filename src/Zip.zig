@@ -19,7 +19,7 @@ pub const ExecutionState = enum {
 chip8: Chip8,
 
 /// The current state of the Zip.
-state: ExecutionState,
+execution_state: ExecutionState,
 
 pub fn init() Zip {
     rl.initWindow(window_width, window_height, "Zip");
@@ -37,7 +37,7 @@ pub fn init() Zip {
 /// instructions at a rate of 60Hz.
 pub fn run(self: *Zip) !bool {
     zip_loop: while (!rl.windowShouldClose()) {
-        if (self.state == .Running) {
+        if (self.execution_state == .Running) {
             self.chip8.executeNextCycle() catch |err| switch (err) {
                 error.StackFull => {
                     std.debug.print("The call stack is full! Cannot call another function.\n", .{});
@@ -81,8 +81,8 @@ pub fn run(self: *Zip) !bool {
             .width = 70,
             .x = controls_offset,
             .y = 30,
-        }, if (self.state == .Running) "Pause" else "Run") != 0) {
-            self.state = if (self.state == .Running) .Paused else .Running;
+        }, if (self.execution_state == .Running) "Pause" else "Run") != 0) {
+            self.execution_state = if (self.execution_state == .Running) .Paused else .Running;
         }
     }
 
