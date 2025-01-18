@@ -37,7 +37,27 @@ pub fn init() Zip {
 /// instructions at a rate of 60Hz.
 pub fn run(self: *Zip) !bool {
     zip_loop: while (!rl.windowShouldClose()) {
-        if (self.execution_state == .Running) {
+        rl.beginDrawing();
+        defer rl.endDrawing();
+
+        rl.clearBackground(rl.Color.dark_gray);
+
+        rg.guiSetStyle(
+            .default,
+            rg.GuiDefaultProperty.text_size,
+            20,
+        );
+
+        // This will only draw step button if not running
+        const should_execute = self.execution_state == .Running or
+            rg.guiButton(.{
+            .height = 40,
+            .width = 70,
+            .x = controls_offset + 80,
+            .y = 30,
+        }, "Step") != 0;
+
+        if (should_execute) {
             self.chip8.executeNextCycle() catch |err| switch (err) {
                 error.StackFull => {
                     std.debug.print("The call stack is full! Cannot call another function.\n", .{});
@@ -61,16 +81,6 @@ pub fn run(self: *Zip) !bool {
                 },
             };
         }
-
-        rl.beginDrawing();
-        defer rl.endDrawing();
-        rl.clearBackground(rl.Color.dark_gray);
-
-        rg.guiSetStyle(
-            .default,
-            rg.GuiDefaultProperty.text_size,
-            20,
-        );
 
         self.updateScreen();
 
