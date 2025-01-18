@@ -17,7 +17,7 @@ pub const register_count = 0x10;
 pub const reserved_mem_size = 0x200;
 pub const screen_width = 0x40;
 pub const screen_height = 0x20;
-const sprites_address = 0;
+pub const sprites_address = 0;
 pub const stack_size = 0x60;
 
 /// 4096 bytes of memory.
