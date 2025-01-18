@@ -1,21 +1,33 @@
 //! This module contains the code for the chip-8.
 
 const std = @import("std");
-const Chip8 = @import("Chip8.zig");
 const rl = @import("raylib");
+const rg = @import("raygui");
+const Chip8 = @import("Chip8.zig");
 const Zip = @This();
 
-const window_width = 1000;
-const window_height = 500;
+const window_width = Chip8.screen_width * 10 + 200;
+const window_height = Chip8.screen_height * 10;
+
+pub const ZipState = enum {
+    Running,
+    Paused,
+};
 
 /// Contains all the data and functions for the Zip.
 chip8: Chip8,
+
+/// The current state of the Zip.
+state: ZipState,
 
 pub fn init() Zip {
     rl.initWindow(window_width, window_height, "Zip");
     rl.setTargetFPS(300);
 
-    const self = Zip{ .chip8 = Chip8.init() };
+    const self = Zip{
+        .chip8 = Chip8.init(),
+        .state = .Paused,
+    };
     return self;
 }
 
@@ -26,28 +38,30 @@ pub fn run(self: *Zip) !bool {
     const stdout = std.io.getStdOut().writer();
 
     zip_loop: while (!rl.windowShouldClose()) {
-        self.chip8.executeNextCycle() catch |err| switch (err) {
-            error.StackFull => {
-                try stdout.print("The call stack is full! Cannot call another function.\n", .{});
-                try self.dumpState();
-                break :zip_loop;
-            },
-            error.UnknownOp => {
-                try stdout.print("An unknown opcode has been encountered!\n", .{});
-                try self.dumpState();
-                break :zip_loop;
-            },
-            error.IllegalReturn => {
-                try stdout.print("Trying to return from global scope!\n", .{});
-                try self.dumpState();
-                break :zip_loop;
-            },
-            error.IllegalAddress => {
-                try stdout.print("Trying to access illegal address!\n", .{});
-                try self.dumpState();
-                break :zip_loop;
-            },
-        };
+        if (self.state == .Running) {
+            self.chip8.executeNextCycle() catch |err| switch (err) {
+                error.StackFull => {
+                    try stdout.write("The call stack is full! Cannot call another function.\n");
+                    try self.dumpState();
+                    break :zip_loop;
+                },
+                error.UnknownOp => {
+                    try stdout.write("An unknown opcode has been encountered!\n");
+                    try self.dumpState();
+                    break :zip_loop;
+                },
+                error.IllegalReturn => {
+                    try stdout.write("Trying to return from global scope!\n");
+                    try self.dumpState();
+                    break :zip_loop;
+                },
+                error.IllegalAddress => {
+                    try stdout.write("Trying to access illegal address!\n");
+                    try self.dumpState();
+                    break :zip_loop;
+                },
+            };
+        }
 
         rl.beginDrawing();
         defer rl.endDrawing();
