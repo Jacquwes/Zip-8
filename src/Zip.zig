@@ -36,6 +36,8 @@ pub fn init() Zip {
 /// program counter until an error is encountered. The function executes
 /// instructions at a rate of 60Hz.
 pub fn run(self: *Zip) !bool {
+    var registers_editable: [16]bool = [_]bool{false} ** 16;
+
     zip_loop: while (!rl.windowShouldClose()) {
         rl.beginDrawing();
         defer rl.endDrawing();
@@ -83,6 +85,7 @@ pub fn run(self: *Zip) !bool {
         }
 
         self.updateScreen();
+        self.updateDebugInterface(&registers_editable);
 
         rl.drawText(
             rl.textFormat("FPS: %d", .{rl.getFPS()}),
@@ -129,6 +132,29 @@ pub fn updateScreen(self: *Zip) void {
                 rl.Color.light_gray,
             );
         }
+    }
+}
+
+pub fn updateDebugInterface(self: *Zip, registers_editable: *[Chip8.register_count]bool) void {
+    for (&self.chip8.registers, registers_editable, 0..) |*register, *register_editable, i| {
+        var value: i32 = @intCast(register.*);
+        if (rg.guiValueBox(
+            .{
+                .height = 20,
+                .width = 50,
+                .x = controls_offset + 30 + 90 * @as(f32, @floatFromInt(i / 8)),
+                .y = 100 + @as(f32, @floatFromInt(i % 8)) * 25,
+            },
+            rl.textFormat("v%X ", .{i}),
+            &value,
+            0,
+            0xff,
+            self.execution_state == .Paused and register_editable.*,
+        ) != 0) {
+            @memset(registers_editable, false);
+            register_editable.* = true;
+        }
+        register.* = @truncate(@as(u32, @intCast(value)));
     }
 }
 
