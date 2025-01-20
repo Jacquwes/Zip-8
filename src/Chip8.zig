@@ -48,6 +48,9 @@ screen: [screen_height * screen_width]u1,
 /// Whether the program is waiting for a key press.
 waiting_for_key: ?u4 = null,
 
+/// Whether the last opcode was a branch instruction.
+branching: bool = false,
+
 /// The sprites for the chip-8.
 const sprites = [0x10][5]u8{
     [_]u8{ 0xf0, 0x90, 0x90, 0x90, 0xf0 }, // 0
@@ -105,7 +108,9 @@ pub fn executeNextCycle(self: *Chip8) Chip8Error!void {
 
     try self.executeOpcode(opcode);
 
-    self.program_counter += 2;
+    if (!self.branching) self.program_counter += 2;
+    self.branching = false;
+
     if (self.delay_timer > 0)
         self.delay_timer -= 1;
     if (self.sound_timer > 0)
@@ -187,7 +192,8 @@ fn returnFromSubroutine(self: *Chip8) Chip8Error!void {
 
 /// 1NNN - Jump to the address NNN without saving the current address.
 fn gotoAddress(self: *Chip8, address: u12) void {
-    self.program_counter = address - 2;
+    self.program_counter = address;
+    self.branching = true;
 }
 
 /// 2NNN - Calls a subroutine at the given address. The address is pushed onto
@@ -196,9 +202,10 @@ fn gotoAddress(self: *Chip8, address: u12) void {
 fn callSubroutine(self: *Chip8, address: u12) Chip8Error!void {
     if (self.stack_ptr == 0x5f) return Chip8Error.StackFull;
 
-    self.stack[self.stack_ptr] = @truncate(self.program_counter - 2);
+    self.stack[self.stack_ptr] = @truncate(self.program_counter);
     self.stack_ptr += 1;
-    self.program_counter = @intCast(address - 2);
+    self.program_counter = @intCast(address);
+    self.branching = true;
 }
 
 /// 3XNN - Skip the next opcode if the value in register X is equal to NN.
@@ -316,7 +323,8 @@ fn loadAddress(self: *Chip8, address: u12) void {
 
 /// BNNN - Jump to the address NNN plus the value in register 0.
 fn gotoAddressV0(self: *Chip8, address: u12) void {
-    self.program_counter = address + self.registers[0] - 2;
+    self.program_counter = address + self.registers[0];
+    self.branching = true;
 }
 
 /// CXNN - Set the value of register X to a random number AND NN.
