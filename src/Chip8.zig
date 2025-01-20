@@ -196,8 +196,9 @@ fn gotoAddress(self: *Chip8, address: u12) void {
 fn callSubroutine(self: *Chip8, address: u12) Chip8Error!void {
     if (self.stack_ptr == 0x5f) return Chip8Error.StackFull;
 
-    self.stack[self.stack_ptr] = address - 2;
+    self.stack[self.stack_ptr] = @truncate(self.program_counter - 2);
     self.stack_ptr += 1;
+    self.program_counter = @intCast(address - 2);
 }
 
 /// 3XNN - Skip the next opcode if the value in register X is equal to NN.
