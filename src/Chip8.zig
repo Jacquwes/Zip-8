@@ -471,6 +471,7 @@ fn dumpRegistersUpTo(self: *Chip8, reg_count: u4) void {
     ) |reg, *mem| {
         mem.* = reg;
     }
+    self.address_register += reg_count + 1;
 }
 
 /// FX65 - Load X bytes from the memory starting at the address stored in
@@ -482,4 +483,5 @@ fn loadRegistersUpTo(self: *Chip8, reg_count: u4) void {
     ) |*reg, mem| {
         reg.* = mem;
     }
+    self.address_register += reg_count + 1;
 }
