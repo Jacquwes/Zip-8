@@ -118,7 +118,7 @@ pub fn executeNextCycle(self: *Chip8) Chip8Error!void {
 }
 
 /// This function executes the given opcode.
-fn executeOpcode(self: *Chip8, opcode: u16) Chip8Error!void {
+pub fn executeOpcode(self: *Chip8, opcode: u16) Chip8Error!void {
     return switch (opcode & 0xf000) {
         0x0000 => switch (opcode) {
             0x00e0 => self.clearScreen(),

@@ -21,7 +21,7 @@ const Zip = @This();
 const layout = struct {
     // Display constants
     const window_width = screen_width + controls_right_size;
-    const window_height = screen_height;
+    const window_height = screen_height + controls_bottom_size;
     const pixel_size = 10;
     const screen_width = Chip8.screen_width * pixel_size;
     const screen_height = Chip8.screen_height * pixel_size;
@@ -36,31 +36,31 @@ const layout = struct {
     const controls_gap = 5;
     const button_width = 70;
     const button_height = 30;
-    const value_box_width = 50;
+    const value_box_width = 55;
     const value_box_height = 20;
     const text_size = 20;
 
     // Layout constants
-    const stack_pointer_x = controls_right_offset_x;
+    const stack_pointer_x = controls_right_offset_x + value_box_label_offset;
     const stack_pointer_y = controls_bottom_offset_y + value_box_height + controls_gap;
-    const inject_value_x = inject_button_x + value_box_width + controls_gap;
+    const inject_value_x = inject_button_x + value_box_width + controls_gap + value_box_label_offset;
     const inject_value_y = address_register_y + value_box_height + controls_gap;
     const inject_button_x = next_opcode_x + value_box_width + controls_gap;
     const inject_button_y = address_register_y + value_box_height + controls_gap;
-    const next_opcode_x = program_counter_x + value_box_width + controls_gap;
+    const next_opcode_x = program_counter_x + 10 + value_box_width + controls_gap + value_box_label_offset;
     const next_opcode_y = address_register_y + value_box_height + controls_gap;
-    const program_counter_x = controls_bottom_offset_x;
+    const program_counter_x = controls_bottom_offset_x + value_box_width;
     const program_counter_y = address_register_y + value_box_height + controls_gap;
-    const sound_timer_x = delay_timer_x + value_box_width + controls_gap;
+    const sound_timer_x = delay_timer_x + value_box_width + controls_gap + value_box_label_offset;
     const sound_timer_y = controls_bottom_offset_y;
-    const delay_timer_x = address_register_x + value_box_width + controls_gap;
+    const delay_timer_x = address_register_x + value_box_width + controls_gap + value_box_label_offset;
     const delay_timer_y = controls_bottom_offset_y;
-    const address_register_x = controls_bottom_offset_x;
+    const address_register_x = controls_bottom_offset_x + value_box_label_offset;
     const address_register_y = controls_bottom_offset_y;
     const register_column_width = 90;
     const register_row_height = 25;
     const register_start_y = text_size + button_height + controls_gap * 3;
-    const register_label_offset = 30;
+    const value_box_label_offset = 40;
     const registers_per_column = 8;
 };
 
@@ -141,7 +141,7 @@ pub fn run(self: *Zip) !bool {
         }
 
         self.updateScreen();
-        self.updateDebugInterface(&registers_editable);
+        try self.updateDebugInterface(&registers_editable);
 
         rl.drawText(
             rl.textFormat("FPS: %d", .{rl.getFPS()}),
@@ -191,14 +191,15 @@ pub fn updateScreen(self: *Zip) void {
     }
 }
 
-pub fn updateDebugInterface(self: *Zip, registers_editable: *[Chip8.register_count]bool) void {
+var inject_value: i32 = 0;
+pub fn updateDebugInterface(self: *Zip, registers_editable: *[Chip8.register_count]bool) !void {
     for (&self.chip8.registers, registers_editable, 0..) |*register, *register_editable, i| {
         var value: i32 = @intCast(register.*);
         if (rg.guiValueBox(
             .{
                 .height = layout.value_box_height,
                 .width = layout.value_box_width,
-                .x = layout.controls_right_offset_x + layout.register_label_offset + layout.register_column_width * @as(f32, @floatFromInt(i / layout.registers_per_column)),
+                .x = layout.controls_right_offset_x + layout.value_box_label_offset + layout.register_column_width * @as(f32, @floatFromInt(i / layout.registers_per_column)),
                 .y = layout.register_start_y + @as(f32, @floatFromInt(i % layout.registers_per_column)) * layout.register_row_height,
             },
             rl.textFormat("v%X ", .{i}),
@@ -211,6 +212,70 @@ pub fn updateDebugInterface(self: *Zip, registers_editable: *[Chip8.register_cou
             register_editable.* = true;
         }
         register.* = @truncate(@as(u32, @intCast(value)));
+    }
+
+    var address_register_value: i32 = @intCast(self.chip8.address_register);
+    _ = rg.guiValueBox(.{
+        .height = layout.value_box_height,
+        .width = layout.value_box_width,
+        .x = layout.address_register_x,
+        .y = layout.address_register_y,
+    }, "I ", &address_register_value, 0, 0xfff, false);
+    self.chip8.address_register = @truncate(@as(u32, @intCast(address_register_value)));
+
+    var delay_timer_value: i32 = @intCast(self.chip8.delay_timer);
+    _ = rg.guiValueBox(.{
+        .height = layout.value_box_height,
+        .width = layout.value_box_width,
+        .x = layout.delay_timer_x,
+        .y = layout.delay_timer_y,
+    }, "DT ", &delay_timer_value, 0, 0xff, false);
+    self.chip8.delay_timer = @truncate(@as(u32, @intCast(delay_timer_value)));
+
+    var sound_timer_value: i32 = @intCast(self.chip8.sound_timer);
+    _ = rg.guiValueBox(.{
+        .height = layout.value_box_height,
+        .width = layout.value_box_width,
+        .x = layout.sound_timer_x,
+        .y = layout.sound_timer_y,
+    }, "ST ", &sound_timer_value, 0, 0xff, false);
+    self.chip8.sound_timer = @truncate(@as(u32, @intCast(sound_timer_value)));
+
+    var pc_value: i32 = @intCast(self.chip8.program_counter);
+    _ = rg.guiValueBox(.{
+        .height = layout.value_box_height,
+        .width = layout.value_box_width,
+        .x = layout.program_counter_x,
+        .y = layout.program_counter_y,
+    }, "PC ", &pc_value, 0, 0xfff, false);
+    self.chip8.program_counter = @truncate(@as(u32, @intCast(pc_value)));
+
+    var next_value: i32 = @intCast(std.mem.readInt(
+        u16,
+        self.chip8.memory[self.chip8.program_counter .. self.chip8.program_counter + 2][0..2],
+        .big,
+    ));
+    _ = rg.guiValueBox(.{
+        .height = layout.value_box_height,
+        .width = layout.value_box_width,
+        .x = layout.next_opcode_x,
+        .y = layout.next_opcode_y,
+    }, "Next ", &next_value, 0, 0xffff, false);
+
+    _ = rg.guiValueBox(.{
+        .height = layout.value_box_height,
+        .width = layout.value_box_width,
+        .x = layout.inject_value_x,
+        .y = layout.inject_value_y,
+    }, "", &inject_value, 0, 0xffff, false);
+
+    if (rg.guiButton(.{
+        .height = layout.button_height,
+        .width = layout.button_width,
+        .x = layout.inject_button_x,
+        .y = layout.inject_button_y,
+    }, "Inject") != 0) {
+        try self.chip8.executeOpcode(@truncate(@as(u32, @intCast(inject_value))));
     }
 }
 
