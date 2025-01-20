@@ -372,11 +372,13 @@ fn drawSprite(self: *Chip8, x: u4, y: u4, height: u4) void {
 
 /// EX9E - Skip the next opcode if the key corresponding to the value
 /// in register X is pressed.
-fn skipIfKeyPressed(self: *Chip8, register: u4) void {
-    const key = if (self.registers[register] < 10)
+fn skipIfKeyPressed(self: *Chip8, register: u4) Chip8Error!void {
+    const key: u8 = if (self.registers[register] < 10)
         self.registers[register] + '0'
+    else if (self.registers[register] < 16)
+        self.registers[register] + 'A' - 10
     else
-        self.registers[register] + 'a' - 10;
+        return Chip8Error.UnknownOp;
 
     if (rl.isKeyDown(@enumFromInt(key)))
         self.program_counter += 2;
@@ -384,11 +386,13 @@ fn skipIfKeyPressed(self: *Chip8, register: u4) void {
 
 /// EXA1 - Skip the next opcode if the key corresponding to the value
 /// in register X is not pressed.
-fn skipIfKeyNotPressed(self: *Chip8, register: u4) void {
-    const key = if (self.registers[register] < 10)
+fn skipIfKeyNotPressed(self: *Chip8, register: u4) Chip8Error!void {
+    const key: u8 = if (self.registers[register] < 10)
         self.registers[register] + '0'
+    else if (self.registers[register] < 16)
+        self.registers[register] + 'A' - 10
     else
-        self.registers[register] + 'a' - 10;
+        return Chip8Error.UnknownOp;
 
     if (!rl.isKeyDown(@enumFromInt(key)))
         self.program_counter += 2;
