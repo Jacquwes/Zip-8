@@ -122,7 +122,7 @@ fn executeOpcode(self: *Chip8, opcode: u16) Chip8Error!void {
     return switch (opcode & 0xf000) {
         0x0000 => switch (opcode) {
             0x00e0 => self.clearScreen(),
-            0x0ee0 => self.returnFromSubroutine(),
+            0x00ee => self.returnFromSubroutine(),
             else => Chip8Error.UnknownOp,
         },
         0x1000 => self.gotoAddress(@truncate(opcode)),
