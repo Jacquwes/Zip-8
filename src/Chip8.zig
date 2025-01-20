@@ -48,6 +48,9 @@ screen: [screen_height * screen_width]u1,
 /// Whether the program is waiting for a key press.
 waiting_for_key: ?u4 = null,
 
+/// Whether the last opcode was a branch instruction.
+branching: bool = false,
+
 /// The sprites for the chip-8.
 const sprites = [0x10][5]u8{
     [_]u8{ 0xf0, 0x90, 0x90, 0x90, 0xf0 }, // 0
@@ -105,7 +108,9 @@ pub fn executeNextCycle(self: *Chip8) Chip8Error!void {
 
     try self.executeOpcode(opcode);
 
-    self.program_counter += 2;
+    if (!self.branching) self.program_counter += 2;
+    self.branching = false;
+
     if (self.delay_timer > 0)
         self.delay_timer -= 1;
     if (self.sound_timer > 0)
@@ -113,11 +118,11 @@ pub fn executeNextCycle(self: *Chip8) Chip8Error!void {
 }
 
 /// This function executes the given opcode.
-fn executeOpcode(self: *Chip8, opcode: u16) Chip8Error!void {
+pub fn executeOpcode(self: *Chip8, opcode: u16) Chip8Error!void {
     return switch (opcode & 0xf000) {
         0x0000 => switch (opcode) {
             0x00e0 => self.clearScreen(),
-            0x0ee0 => self.returnFromSubroutine(),
+            0x00ee => self.returnFromSubroutine(),
             else => Chip8Error.UnknownOp,
         },
         0x1000 => self.gotoAddress(@truncate(opcode)),
@@ -187,7 +192,8 @@ fn returnFromSubroutine(self: *Chip8) Chip8Error!void {
 
 /// 1NNN - Jump to the address NNN without saving the current address.
 fn gotoAddress(self: *Chip8, address: u12) void {
-    self.program_counter = address - 2;
+    self.program_counter = address;
+    self.branching = true;
 }
 
 /// 2NNN - Calls a subroutine at the given address. The address is pushed onto
@@ -196,8 +202,10 @@ fn gotoAddress(self: *Chip8, address: u12) void {
 fn callSubroutine(self: *Chip8, address: u12) Chip8Error!void {
     if (self.stack_ptr == 0x5f) return Chip8Error.StackFull;
 
-    self.stack[self.stack_ptr] = address - 2;
+    self.stack[self.stack_ptr] = @truncate(self.program_counter);
     self.stack_ptr += 1;
+    self.program_counter = @intCast(address);
+    self.branching = true;
 }
 
 /// 3XNN - Skip the next opcode if the value in register X is equal to NN.
@@ -241,64 +249,74 @@ fn setRegisterToRegister(self: *Chip8, x: u4, y: u4) void {
 /// value of register Y.
 fn registerOrRegister(self: *Chip8, x: u4, y: u4) void {
     self.registers[x] |= self.registers[y];
+    self.registers[0xf] = 0;
 }
 
 /// 8XY2 - Set the value of register X to the value of register X AND the
 /// value of register Y.
 fn registerAndRegister(self: *Chip8, x: u4, y: u4) void {
     self.registers[x] &= self.registers[y];
+    self.registers[0xf] = 0;
 }
 
 /// 8XY3 - Set the value of register X to the value of register X XOR the
 /// value of register Y.
 fn registerXorRegister(self: *Chip8, x: u4, y: u4) void {
     self.registers[x] ^= self.registers[y];
+    self.registers[0xf] = 0;
 }
 
 /// 8XY4 - Adds the value of register Y to the value of register X. If the
 /// result is greater than 255, it will set the carry flag to 1.
 fn registerPlusRegister(self: *Chip8, x: u4, y: u4) void {
-    const result: u9 = self.registers[x] +% self.registers[y];
-    if (result > 0xff)
-        self.registers[0xf] = 1;
+    const result: u9 = @as(u9, @intCast(self.registers[x])) + self.registers[y];
+    const carry: u1 = @truncate(result >> 8);
 
     self.registers[x] = @truncate(result);
+
+    self.registers[0xf] = carry;
 }
 
 /// 8XY5 - Subtracts the value of register Y from the value of register X.
 /// If the value of register X is greater than the value of register Y, it
 /// will set the carry flag to 1.
 fn registerMinusRegister(self: *Chip8, x: u4, y: u4) void {
-    self.registers[0xf] = if (self.registers[x] >= self.registers[y]) 1 else 0;
+    const carry = self.registers[x] >= self.registers[y];
 
     self.registers[x] -%= self.registers[y];
+
+    self.registers[0xf] = @intFromBool(carry);
 }
 
 /// 8XY6 - Shifts the value of register X to the right by 1. The least
 /// significant bit is stored in the carry flag.
-fn registerShiftRight(self: *Chip8, x: u4, y: u4) void {
-    _ = y;
-    self.registers[0xf] = self.registers[x] & 0b0000_0001;
+fn registerShiftRight(self: *Chip8, x: u4, _: u4) void {
+    const carry = self.registers[x] & 0b0000_0001;
+
     self.registers[x] >>= 1;
+
+    self.registers[0xf] = carry;
 }
 
 /// 8XY7 - Set the value of register X to the value of register Y minus
 /// the value of register X. If the value of register Y is greater than
 /// the value of register X, it will set the carry flag to 1.
 fn registerRegisterMinus(self: *Chip8, x: u4, y: u4) void {
-    if (self.registers[y] >= self.registers[x])
-        self.registers[0xf] = 1;
+    const carry = self.registers[y] >= self.registers[x];
 
-    self.registers[x] = self.registers[y] - self.registers[x];
+    self.registers[x] = self.registers[y] -% self.registers[x];
+
+    self.registers[0xf] = @intFromBool(carry);
 }
 
 /// 8XYE - Shifts the value of register X to the left by 1. The most
 /// significant bit is stored in the carry flag.
-fn registerShiftLeft(self: *Chip8, x: u4, y: u4) void {
-    _ = y;
-    self.registers[0xf] = (self.registers[x] & 0b1000_0000) >> 7;
+fn registerShiftLeft(self: *Chip8, x: u4, _: u4) void {
+    const carry = (self.registers[x] & 0b1000_0000) >> 7;
 
     self.registers[x] <<= 1;
+
+    self.registers[0xf] = carry;
 }
 
 /// 9XY0 - Skip the next opcode if the value in register X is not
@@ -315,7 +333,8 @@ fn loadAddress(self: *Chip8, address: u12) void {
 
 /// BNNN - Jump to the address NNN plus the value in register 0.
 fn gotoAddressV0(self: *Chip8, address: u12) void {
-    self.program_counter = address + self.registers[0] - 2;
+    self.program_counter = address + self.registers[0];
+    self.branching = true;
 }
 
 /// CXNN - Set the value of register X to a random number AND NN.
@@ -356,11 +375,13 @@ fn drawSprite(self: *Chip8, x: u4, y: u4, height: u4) void {
 
 /// EX9E - Skip the next opcode if the key corresponding to the value
 /// in register X is pressed.
-fn skipIfKeyPressed(self: *Chip8, register: u4) void {
-    const key = if (self.registers[register] < 10)
+fn skipIfKeyPressed(self: *Chip8, register: u4) Chip8Error!void {
+    const key: u8 = if (self.registers[register] < 10)
         self.registers[register] + '0'
+    else if (self.registers[register] < 16)
+        self.registers[register] + 'A' - 10
     else
-        self.registers[register] + 'a' - 10;
+        return Chip8Error.UnknownOp;
 
     if (rl.isKeyDown(@enumFromInt(key)))
         self.program_counter += 2;
@@ -368,11 +389,13 @@ fn skipIfKeyPressed(self: *Chip8, register: u4) void {
 
 /// EXA1 - Skip the next opcode if the key corresponding to the value
 /// in register X is not pressed.
-fn skipIfKeyNotPressed(self: *Chip8, register: u4) void {
-    const key = if (self.registers[register] < 10)
+fn skipIfKeyNotPressed(self: *Chip8, register: u4) Chip8Error!void {
+    const key: u8 = if (self.registers[register] < 10)
         self.registers[register] + '0'
+    else if (self.registers[register] < 16)
+        self.registers[register] + 'A' - 10
     else
-        self.registers[register] + 'a' - 10;
+        return Chip8Error.UnknownOp;
 
     if (!rl.isKeyDown(@enumFromInt(key)))
         self.program_counter += 2;
@@ -441,16 +464,24 @@ fn storeBinaryCodedRegister(self: *Chip8, x: u4) !void {
 
 /// FX55 - Dumps the values of the registers up to register X into memory
 /// starting at the address stored in the address register.
-fn dumpRegistersUpTo(self: *Chip8, register: u4) void {
-    for (self.registers, 0..register) |value, i| {
-        self.memory[i + self.address_register] = value;
+fn dumpRegistersUpTo(self: *Chip8, reg_count: u4) void {
+    for (
+        self.registers[0 .. reg_count + 1],
+        self.memory[self.address_register .. self.address_register + reg_count + 1],
+    ) |reg, *mem| {
+        mem.* = reg;
     }
+    self.address_register += reg_count + 1;
 }
 
 /// FX65 - Load X bytes from the memory starting at the address stored in
 /// the address register into the registers up to register X.
-fn loadRegistersUpTo(self: *Chip8, register: u4) void {
-    for (0..register) |i| {
-        self.registers[i] = self.memory[self.address_register + i];
+fn loadRegistersUpTo(self: *Chip8, reg_count: u4) void {
+    for (
+        self.registers[0 .. reg_count + 1],
+        self.memory[self.address_register .. self.address_register + reg_count + 1],
+    ) |*reg, mem| {
+        reg.* = mem;
     }
+    self.address_register += reg_count + 1;
 }
