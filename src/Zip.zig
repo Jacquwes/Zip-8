@@ -6,30 +6,64 @@ const rg = @import("raygui");
 const Chip8 = @import("Chip8.zig");
 const Zip = @This();
 
-// Display constants
-const window_width = screen_width + controls_right_size;
-const window_height = screen_height;
-const pixel_size = 10;
-const screen_width = Chip8.screen_width * pixel_size;
-const screen_height = Chip8.screen_height * pixel_size;
+// |----------------------------| FPS: %d
+// |                            | Run/Pause Step
+// |                            | v1 %x   v8 %x
+// |                            | v2 %x   v9 %x
+// |                            | ...     ...
+// |----------------------------|
+// I: %x DT: %d ST: %d
+// PC: %d Next: %x Inject: %x
+// SP: %d Stack: >%d:%x
+//
+// > = dropdown
 
-// UI constants
-const controls_right_offset_x = screen_width + controls_gap;
-const controls_right_offset_y = controls_gap;
-const controls_right_size = 200;
-const controls_gap = 5;
-const button_width = 70;
-const button_height = 30;
-const value_box_width = 50;
-const value_box_height = 20;
-const text_size = 20;
+const layout = struct {
+    // Display constants
+    const window_width = screen_width + controls_right_size;
+    const window_height = screen_height;
+    const pixel_size = 10;
+    const screen_width = Chip8.screen_width * pixel_size;
+    const screen_height = Chip8.screen_height * pixel_size;
 
-// Layout constants
-const register_column_width = 90;
-const register_row_height = 25;
-const register_start_y = 100;
-const register_label_offset = 30;
-const registers_per_column = 8;
+    // UI constants
+    const controls_right_offset_x = screen_width + controls_gap;
+    const controls_right_offset_y = controls_gap;
+    const controls_right_size = 200;
+    const controls_bottom_offset_x = controls_gap;
+    const controls_bottom_offset_y = screen_height + controls_gap;
+    const controls_bottom_size = value_box_height * 3 + controls_gap * 4;
+    const controls_gap = 5;
+    const button_width = 70;
+    const button_height = 30;
+    const value_box_width = 50;
+    const value_box_height = 20;
+    const text_size = 20;
+
+    // Layout constants
+    const stack_pointer_x = controls_right_offset_x;
+    const stack_pointer_y = controls_bottom_offset_y + value_box_height + controls_gap;
+    const inject_value_x = inject_button_x + value_box_width + controls_gap;
+    const inject_value_y = address_register_y + value_box_height + controls_gap;
+    const inject_button_x = next_opcode_x + value_box_width + controls_gap;
+    const inject_button_y = address_register_y + value_box_height + controls_gap;
+    const next_opcode_x = program_counter_x + value_box_width + controls_gap;
+    const next_opcode_y = address_register_y + value_box_height + controls_gap;
+    const program_counter_x = controls_bottom_offset_x;
+    const program_counter_y = address_register_y + value_box_height + controls_gap;
+    const sound_timer_x = delay_timer_x + value_box_width + controls_gap;
+    const sound_timer_y = controls_bottom_offset_y;
+    const delay_timer_x = address_register_x + value_box_width + controls_gap;
+    const delay_timer_y = controls_bottom_offset_y;
+    const address_register_x = controls_bottom_offset_x;
+    const address_register_y = controls_bottom_offset_y;
+    const register_column_width = 90;
+    const register_row_height = 25;
+    const register_start_y = text_size + button_height + controls_gap * 3;
+    const register_label_offset = 30;
+    const registers_per_column = 8;
+};
+
 const target_fps = 300;
 
 pub const ExecutionState = enum {
@@ -44,7 +78,7 @@ chip8: Chip8,
 execution_state: ExecutionState,
 
 pub fn init() Zip {
-    rl.initWindow(window_width, window_height, "Zip");
+    rl.initWindow(layout.window_width, layout.window_height, "Zip");
     rl.setTargetFPS(target_fps);
 
     const self = Zip{
@@ -69,16 +103,16 @@ pub fn run(self: *Zip) !bool {
         rg.guiSetStyle(
             .default,
             rg.GuiDefaultProperty.text_size,
-            text_size,
+            layout.text_size,
         );
 
         // This will only draw step button if not running
         const should_execute = self.execution_state == .Running or
             rg.guiButton(.{
-            .height = button_height,
-            .width = button_width,
-            .x = controls_right_offset_x + button_width + controls_gap,
-            .y = text_size + controls_gap * 2,
+            .height = layout.button_height,
+            .width = layout.button_width,
+            .x = layout.controls_right_offset_x + layout.button_width + layout.controls_gap,
+            .y = layout.text_size + layout.controls_gap * 2,
         }, "Step") != 0;
 
         if (should_execute) {
@@ -111,16 +145,16 @@ pub fn run(self: *Zip) !bool {
 
         rl.drawText(
             rl.textFormat("FPS: %d", .{rl.getFPS()}),
-            controls_right_offset_x,
-            controls_gap,
-            text_size,
+            layout.controls_right_offset_x,
+            layout.controls_gap,
+            layout.text_size,
             rl.Color.light_gray,
         );
         if (rg.guiButton(.{
-            .height = button_height,
-            .width = button_width,
-            .x = controls_right_offset_x,
-            .y = text_size + controls_gap * 2,
+            .height = layout.button_height,
+            .width = layout.button_width,
+            .x = layout.controls_right_offset_x,
+            .y = layout.text_size + layout.controls_gap * 2,
         }, if (self.execution_state == .Running) "Pause" else "Run") != 0) {
             self.execution_state = if (self.execution_state == .Running) .Paused else .Running;
         }
@@ -136,21 +170,21 @@ pub fn updateScreen(self: *Zip) void {
     rl.drawRectangle(
         0,
         0,
-        screen_width,
-        screen_height,
+        layout.screen_width,
+        layout.screen_height,
         rl.Color.black,
     );
 
     for (screen, 0..) |pixel, i| {
-        const x_offset = @as(i32, @intCast(i % Chip8.screen_width)) * pixel_size;
-        const y_offset = @as(i32, @intCast(i / Chip8.screen_width)) * pixel_size;
+        const x_offset = @as(i32, @intCast(i % Chip8.screen_width)) * layout.pixel_size;
+        const y_offset = @as(i32, @intCast(i / Chip8.screen_width)) * layout.pixel_size;
 
         if (pixel == 1) {
             rl.drawRectangle(
                 x_offset,
                 y_offset,
-                pixel_size,
-                pixel_size,
+                layout.pixel_size,
+                layout.pixel_size,
                 rl.Color.light_gray,
             );
         }
@@ -162,10 +196,10 @@ pub fn updateDebugInterface(self: *Zip, registers_editable: *[Chip8.register_cou
         var value: i32 = @intCast(register.*);
         if (rg.guiValueBox(
             .{
-                .height = value_box_height,
-                .width = value_box_width,
-                .x = controls_right_offset_x + register_label_offset + register_column_width * @as(f32, @floatFromInt(i / registers_per_column)),
-                .y = register_start_y + @as(f32, @floatFromInt(i % registers_per_column)) * register_row_height,
+                .height = layout.value_box_height,
+                .width = layout.value_box_width,
+                .x = layout.controls_right_offset_x + layout.register_label_offset + layout.register_column_width * @as(f32, @floatFromInt(i / layout.registers_per_column)),
+                .y = layout.register_start_y + @as(f32, @floatFromInt(i % layout.registers_per_column)) * layout.register_row_height,
             },
             rl.textFormat("v%X ", .{i}),
             &value,
