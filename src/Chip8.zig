@@ -267,46 +267,53 @@ fn registerXorRegister(self: *Chip8, x: u4, y: u4) void {
 /// result is greater than 255, it will set the carry flag to 1.
 fn registerPlusRegister(self: *Chip8, x: u4, y: u4) void {
     const result: u9 = self.registers[x] +% self.registers[y];
-    if (result > 0xff)
-        self.registers[0xf] = 1;
+    const carry: u1 = @truncate(result >> 8);
 
     self.registers[x] = @truncate(result);
+
+    self.registers[0xf] = carry;
 }
 
 /// 8XY5 - Subtracts the value of register Y from the value of register X.
 /// If the value of register X is greater than the value of register Y, it
 /// will set the carry flag to 1.
 fn registerMinusRegister(self: *Chip8, x: u4, y: u4) void {
-    self.registers[0xf] = if (self.registers[x] >= self.registers[y]) 1 else 0;
+    const carry = self.registers[x] >= self.registers[y];
 
     self.registers[x] -%= self.registers[y];
+
+    self.registers[0xf] = if (carry) 1 else 0;
 }
 
 /// 8XY6 - Shifts the value of register X to the right by 1. The least
 /// significant bit is stored in the carry flag.
-fn registerShiftRight(self: *Chip8, x: u4, y: u4) void {
-    _ = y;
-    self.registers[0xf] = self.registers[x] & 0b0000_0001;
+fn registerShiftRight(self: *Chip8, x: u4, _: u4) void {
+    const carry = self.registers[x] & 0b0000_0001;
+
     self.registers[x] >>= 1;
+
+    self.registers[0xf] = carry;
 }
 
 /// 8XY7 - Set the value of register X to the value of register Y minus
 /// the value of register X. If the value of register Y is greater than
 /// the value of register X, it will set the carry flag to 1.
 fn registerRegisterMinus(self: *Chip8, x: u4, y: u4) void {
-    if (self.registers[y] >= self.registers[x])
-        self.registers[0xf] = 1;
+    const carry = self.registers[y] >= self.registers[x];
 
     self.registers[x] = self.registers[y] -% self.registers[x];
+
+    if (carry) self.registers[0xf] = 1;
 }
 
 /// 8XYE - Shifts the value of register X to the left by 1. The most
 /// significant bit is stored in the carry flag.
-fn registerShiftLeft(self: *Chip8, x: u4, y: u4) void {
-    _ = y;
-    self.registers[0xf] = (self.registers[x] & 0b1000_0000) >> 7;
+fn registerShiftLeft(self: *Chip8, x: u4, _: u4) void {
+    const carry = (self.registers[x] & 0b1000_0000) >> 7;
 
     self.registers[x] <<= 1;
+
+    self.registers[0xf] = carry;
 }
 
 /// 9XY0 - Skip the next opcode if the value in register X is not
