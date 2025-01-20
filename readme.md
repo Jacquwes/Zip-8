@@ -1,6 +1,6 @@
 # Zip-8
 
-Quick Chip-8 emulator written in Zig
+Quick Chip-8 emulator written in Zig 0.13.0
 
 ![Zip-8 demo](zip.gif)
 
