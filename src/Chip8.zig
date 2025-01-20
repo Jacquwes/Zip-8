@@ -442,7 +442,7 @@ fn storeBinaryCodedRegister(self: *Chip8, x: u4) !void {
 /// FX55 - Dumps the values of the registers up to register X into memory
 /// starting at the address stored in the address register.
 fn dumpRegistersUpTo(self: *Chip8, register: u4) void {
-    for (self.registers, 0..register) |value, i| {
+    for (self.registers[0..register], 0..) |value, i| {
         self.memory[i + self.address_register] = value;
     }
 }
