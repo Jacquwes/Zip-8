@@ -266,7 +266,7 @@ fn registerXorRegister(self: *Chip8, x: u4, y: u4) void {
 /// 8XY4 - Adds the value of register Y to the value of register X. If the
 /// result is greater than 255, it will set the carry flag to 1.
 fn registerPlusRegister(self: *Chip8, x: u4, y: u4) void {
-    const result: u9 = self.registers[x] +% self.registers[y];
+    const result: u9 = @as(u9, @intCast(self.registers[x])) + self.registers[y];
     const carry: u1 = @truncate(result >> 8);
 
     self.registers[x] = @truncate(result);
