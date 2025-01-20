@@ -249,18 +249,21 @@ fn setRegisterToRegister(self: *Chip8, x: u4, y: u4) void {
 /// value of register Y.
 fn registerOrRegister(self: *Chip8, x: u4, y: u4) void {
     self.registers[x] |= self.registers[y];
+    self.registers[0xf] = 0;
 }
 
 /// 8XY2 - Set the value of register X to the value of register X AND the
 /// value of register Y.
 fn registerAndRegister(self: *Chip8, x: u4, y: u4) void {
     self.registers[x] &= self.registers[y];
+    self.registers[0xf] = 0;
 }
 
 /// 8XY3 - Set the value of register X to the value of register X XOR the
 /// value of register Y.
 fn registerXorRegister(self: *Chip8, x: u4, y: u4) void {
     self.registers[x] ^= self.registers[y];
+    self.registers[0xf] = 0;
 }
 
 /// 8XY4 - Adds the value of register Y to the value of register X. If the
