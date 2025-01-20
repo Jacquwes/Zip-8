@@ -289,7 +289,7 @@ fn registerRegisterMinus(self: *Chip8, x: u4, y: u4) void {
     if (self.registers[y] >= self.registers[x])
         self.registers[0xf] = 1;
 
-    self.registers[x] = self.registers[y] - self.registers[x];
+    self.registers[x] = self.registers[y] -% self.registers[x];
 }
 
 /// 8XYE - Shifts the value of register X to the left by 1. The most
