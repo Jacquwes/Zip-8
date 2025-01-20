@@ -282,7 +282,7 @@ fn registerMinusRegister(self: *Chip8, x: u4, y: u4) void {
 
     self.registers[x] -%= self.registers[y];
 
-    self.registers[0xf] = if (carry) 1 else 0;
+    self.registers[0xf] = @intFromBool(carry);
 }
 
 /// 8XY6 - Shifts the value of register X to the right by 1. The least
@@ -303,7 +303,7 @@ fn registerRegisterMinus(self: *Chip8, x: u4, y: u4) void {
 
     self.registers[x] = self.registers[y] -% self.registers[x];
 
-    if (carry) self.registers[0xf] = 1;
+    self.registers[0xf] = @intFromBool(carry);
 }
 
 /// 8XYE - Shifts the value of register X to the left by 1. The most
