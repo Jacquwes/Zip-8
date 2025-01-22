@@ -64,7 +64,7 @@ const layout = struct {
     const registers_per_column = 8;
 };
 
-const target_fps = 300;
+const target_fps = 60;
 
 pub const ExecutionState = enum {
     Running,
@@ -77,6 +77,9 @@ chip8: Chip8,
 /// The current state of the Zip.
 execution_state: ExecutionState,
 
+/// The number of cycles to execute per frame
+cycles_per_frame: u32,
+
 pub fn init() Zip {
     rl.initWindow(layout.window_width, layout.window_height, "Zip");
     rl.setTargetFPS(target_fps);
@@ -84,6 +87,7 @@ pub fn init() Zip {
     const self = Zip{
         .chip8 = Chip8.init(),
         .execution_state = .Paused,
+        .cycles_per_frame = 10,
     };
     return self;
 }
@@ -116,28 +120,30 @@ pub fn run(self: *Zip) !bool {
         }, "Step") != 0;
 
         if (should_execute) {
-            self.chip8.executeNextCycle() catch |err| switch (err) {
-                error.StackFull => {
-                    std.debug.print("The call stack is full! Cannot call another function.\n", .{});
-                    try self.dumpState();
-                    break :zip_loop;
-                },
-                error.UnknownOp => {
-                    std.debug.print("An unknown opcode has been encountered!\n", .{});
-                    try self.dumpState();
-                    break :zip_loop;
-                },
-                error.IllegalReturn => {
-                    std.debug.print("Trying to return from global scope!\n", .{});
-                    try self.dumpState();
-                    break :zip_loop;
-                },
-                error.IllegalAddress => {
-                    std.debug.print("Trying to access illegal address!\n", .{});
-                    try self.dumpState();
-                    break :zip_loop;
-                },
-            };
+            for (0..self.cycles_per_frame) |_| {
+                self.chip8.executeNextCycle() catch |err| switch (err) {
+                    error.StackFull => {
+                        std.debug.print("The call stack is full! Cannot call another function.\n", .{});
+                        try self.dumpState();
+                        break :zip_loop;
+                    },
+                    error.UnknownOp => {
+                        std.debug.print("An unknown opcode has been encountered!\n", .{});
+                        try self.dumpState();
+                        break :zip_loop;
+                    },
+                    error.IllegalReturn => {
+                        std.debug.print("Trying to return from global scope!\n", .{});
+                        try self.dumpState();
+                        break :zip_loop;
+                    },
+                    error.IllegalAddress => {
+                        std.debug.print("Trying to access illegal address!\n", .{});
+                        try self.dumpState();
+                        break :zip_loop;
+                    },
+                };
+            }
 
             if (self.chip8.delay_timer > 0)
                 self.chip8.delay_timer -= 1;
