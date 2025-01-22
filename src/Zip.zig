@@ -98,59 +98,35 @@ pub fn init() Zip {
 pub fn run(self: *Zip) !bool {
     var registers_editable: [Chip8.register_count]bool = [_]bool{false} ** Chip8.register_count;
 
-    zip_loop: while (!rl.windowShouldClose()) {
+    while (!rl.windowShouldClose()) {
         rl.beginDrawing();
         defer rl.endDrawing();
 
         rl.clearBackground(rl.Color.dark_gray);
-
         rg.guiSetStyle(
             .default,
             rg.GuiDefaultProperty.text_size,
             layout.text_size,
         );
 
-        // This will only draw step button if not running
-        const should_execute = self.execution_state == .Running or
-            rg.guiButton(.{
+        if (self.execution_state == .Running) {
+            for (0..self.cycles_per_frame) |_| {
+                self.chip8.executeNextCycle() catch |err| handleError(err);
+            }
+        } else if (rg.guiButton(.{
             .height = layout.button_height,
             .width = layout.button_width,
             .x = layout.controls_right_offset_x + layout.button_width + layout.controls_gap,
             .y = layout.text_size + layout.controls_gap * 2,
-        }, "Step") != 0;
-
-        if (should_execute) {
-            for (0..self.cycles_per_frame) |_| {
-                self.chip8.executeNextCycle() catch |err| switch (err) {
-                    error.StackFull => {
-                        std.debug.print("The call stack is full! Cannot call another function.\n", .{});
-                        try self.dumpState();
-                        break :zip_loop;
-                    },
-                    error.UnknownOp => {
-                        std.debug.print("An unknown opcode has been encountered!\n", .{});
-                        try self.dumpState();
-                        break :zip_loop;
-                    },
-                    error.IllegalReturn => {
-                        std.debug.print("Trying to return from global scope!\n", .{});
-                        try self.dumpState();
-                        break :zip_loop;
-                    },
-                    error.IllegalAddress => {
-                        std.debug.print("Trying to access illegal address!\n", .{});
-                        try self.dumpState();
-                        break :zip_loop;
-                    },
-                };
+        }, "Step") != 0) {
+                            self.chip8.executeNextCycle() catch |err| handleError(err);
             }
 
             if (self.chip8.delay_timer > 0)
                 self.chip8.delay_timer -= 1;
             if (self.chip8.sound_timer > 0)
                 self.chip8.sound_timer -= 1;
-        }
-
+        
         self.updateScreen();
         try self.updateDebugInterface(&registers_editable);
 
