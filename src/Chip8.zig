@@ -288,11 +288,13 @@ fn registerMinusRegister(self: *Chip8, x: u4, y: u4) void {
     self.registers[0xf] = @intFromBool(carry);
 }
 
-/// 8XY6 - Shifts the value of register X to the right by 1. The least
-/// significant bit is stored in the carry flag.
-fn registerShiftRight(self: *Chip8, x: u4, _: u4) void {
+/// 8XY6 - Saves the value of register Y to register X, then shifts the value
+/// of register X to the right by 1. The least significant bit is stored in
+/// the carry flag.
+fn registerShiftRight(self: *Chip8, x: u4, y: u4) void {
     const carry = self.registers[x] & 0b0000_0001;
 
+    self.registers[x] = self.registers[y];
     self.registers[x] >>= 1;
 
     self.registers[0xf] = carry;
@@ -309,11 +311,13 @@ fn registerRegisterMinus(self: *Chip8, x: u4, y: u4) void {
     self.registers[0xf] = @intFromBool(carry);
 }
 
-/// 8XYE - Shifts the value of register X to the left by 1. The most
-/// significant bit is stored in the carry flag.
-fn registerShiftLeft(self: *Chip8, x: u4, _: u4) void {
+/// 8XYE - Saves the value of register Y to register X, then shifts the value
+/// of register X to the left by 1. The least significant bit is stored in
+/// the carry flag.
+fn registerShiftLeft(self: *Chip8, x: u4, y: u4) void {
     const carry = (self.registers[x] & 0b1000_0000) >> 7;
 
+    self.registers[x] = self.registers[y];
     self.registers[x] <<= 1;
 
     self.registers[0xf] = carry;
