@@ -93,15 +93,20 @@ pub fn init() Chip8 {
     return chip8;
 }
 
-/// This function executes the next opcode at the program counter.
-/// It will increment the program counter by 2, decrement the delay and
-/// sound timers by 1, and execute the opcode.
-pub fn executeNextCycle(self: *Chip8) Chip8Error!void {
-    const opcode: u16 = std.mem.readInt(
+/// This function fetches the next opcode at the program counter.
+pub fn fetchOpcode(self: *const Chip8) u16 {
+    return std.mem.readInt(
         u16,
         self.memory[self.program_counter .. self.program_counter + 2][0..2],
         .big,
     );
+}
+
+/// This function executes the next opcode at the program counter.
+/// It will increment the program counter by 2, decrement the delay and
+/// sound timers by 1, and execute the opcode.
+pub fn executeNextCycle(self: *Chip8) Chip8Error!void {
+    const opcode = self.fetchOpcode();
 
     if (self.waiting_for_key) |register|
         return self.getKey(register);

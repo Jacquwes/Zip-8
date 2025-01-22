@@ -119,9 +119,14 @@ pub fn run(self: *Zip) !bool {
 
         if (self.execution_state == .Running) {
             for (0..self.cycles_per_frame) |_| {
+                const opcode = self.chip8.fetchOpcode();
                 self.chip8.executeNextCycle() catch |err| {
                     self.current_error = err;
                 };
+                // Wait for vblank after drawing a sprite
+                if (opcode & 0xf000 == 0xd000) {
+                    break;
+                }
             }
         } else if (rg.guiButton(.{
             .height = layout.button_height,
