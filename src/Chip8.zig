@@ -352,19 +352,30 @@ fn setRegisterToRandomAndN(self: *Chip8, x: u4, n: u8) void {
 /// at the given coordinates. The sprite is 8 pixels wide and N pixels
 /// tall. The sprite is XORed with the screen buffer. If a pixel is
 /// erased, the carry flag is set to 1.
+///
+/// Details: Parts of sprites that are outside of the screen are not wrapped.
+/// However, the sprite is wrapped around the screen if it starts outside of
+/// the screen.
 fn drawSprite(self: *Chip8, x: u4, y: u4, height: u4) void {
-    var y_offset: u8 = 0;
+    self.registers[0xf] = 0;
+    const starts_outside_y = self.registers[y] >= screen_height;
+    const starts_outside_x = self.registers[x] >= screen_width;
+    const screen_y_offset = if (starts_outside_y) self.registers[y] % screen_height else self.registers[y];
+    const screen_x_offset = if (starts_outside_x) self.registers[x] % screen_width else self.registers[x];
 
-    while (y_offset < height) : (y_offset += 1) {
-        const y_coord = (self.registers[y] + y_offset) % screen_height;
-        var x_offset: u8 = 0;
-        while (x_offset < 8) : (x_offset += 1) {
-            const x_coord = (self.registers[x] + x_offset) % screen_width;
+    for (0..height) |sprite_y_index| {
+        // Wrap the sprite around the screen only if it starts outside.
+        if (screen_y_offset + sprite_y_index >= screen_height) continue;
+        const screen_y_coord = screen_y_offset + sprite_y_index;
+        for (0..8) |sprite_x_index| {
+            // Wrap the sprite around the screen only if it starts outside.
+            if (screen_x_offset + sprite_x_index >= screen_width) continue;
+            const screen_x_coord = screen_x_offset + sprite_x_index;
 
             const sprite_pixel: u1 = @truncate(
-                self.memory[self.address_register + y_offset] >> (7 - @as(u3, @intCast(x_offset))),
+                self.memory[self.address_register + sprite_y_index] >> (7 - @as(u3, @intCast(sprite_x_index))),
             );
-            const screen_pixel_offset = @as(u16, @intCast(y_coord)) * screen_width + x_coord;
+            const screen_pixel_offset = @as(u16, @intCast(screen_y_coord)) * screen_width + screen_x_coord;
             const screen_pixel: u1 = (self.screen[screen_pixel_offset]) & 1;
 
             const new_pixel: u1 = (sprite_pixel ^ screen_pixel) & 1;
