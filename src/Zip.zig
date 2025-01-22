@@ -77,6 +77,8 @@ chip8: Chip8,
 /// The current state of the Zip.
 execution_state: ExecutionState,
 
+current_error: ?Chip8.Chip8Error,
+
 /// The number of cycles to execute per frame
 cycles_per_frame: u32,
 
@@ -88,6 +90,7 @@ pub fn init() Zip {
         .chip8 = Chip8.init(),
         .execution_state = .Paused,
         .cycles_per_frame = 10,
+        .current_error = null,
     };
     return self;
 }
@@ -109,9 +112,16 @@ pub fn run(self: *Zip) !bool {
             layout.text_size,
         );
 
+        if (self.current_error) |err| {
+            handleError(err);
+            continue;
+        }
+
         if (self.execution_state == .Running) {
             for (0..self.cycles_per_frame) |_| {
-                self.chip8.executeNextCycle() catch |err| handleError(err);
+                self.chip8.executeNextCycle() catch |err| {
+                    self.current_error = err;
+                };
             }
         } else if (rg.guiButton(.{
             .height = layout.button_height,
@@ -119,14 +129,16 @@ pub fn run(self: *Zip) !bool {
             .x = layout.controls_right_offset_x + layout.button_width + layout.controls_gap,
             .y = layout.text_size + layout.controls_gap * 2,
         }, "Step") != 0) {
-                            self.chip8.executeNextCycle() catch |err| handleError(err);
-            }
+            self.chip8.executeNextCycle() catch |err| {
+                self.current_error = err;
+            };
+        }
 
-            if (self.chip8.delay_timer > 0)
-                self.chip8.delay_timer -= 1;
-            if (self.chip8.sound_timer > 0)
-                self.chip8.sound_timer -= 1;
-        
+        if (self.chip8.delay_timer > 0)
+            self.chip8.delay_timer -= 1;
+        if (self.chip8.sound_timer > 0)
+            self.chip8.sound_timer -= 1;
+
         self.updateScreen();
         try self.updateDebugInterface(&registers_editable);
 
@@ -148,6 +160,25 @@ pub fn run(self: *Zip) !bool {
     }
 
     return true;
+}
+
+pub fn handleError(err: Chip8.Chip8Error) void {
+    const result = rg.guiMessageBox(.{
+        .height = 200,
+        .width = 500,
+        .x = 100,
+        .y = 100,
+    }, "An error has occurred", switch (err) {
+        error.StackFull => "The call stack is full! Cannot call another function.\n",
+        error.UnknownOp => "An unknown opcode has been encountered!\n",
+        error.IllegalReturn => "Trying to return from global scope!\n",
+        error.IllegalAddress => "Trying to access illegal address!\n",
+    }, "Quit");
+
+    if (result == 1) {
+        rl.closeWindow();
+        std.process.exit(0);
+    }
 }
 
 pub fn updateScreen(self: *Zip) void {
