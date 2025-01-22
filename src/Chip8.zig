@@ -110,11 +110,6 @@ pub fn executeNextCycle(self: *Chip8) Chip8Error!void {
 
     if (!self.branching) self.program_counter += 2;
     self.branching = false;
-
-    if (self.delay_timer > 0)
-        self.delay_timer -= 1;
-    if (self.sound_timer > 0)
-        self.sound_timer -= 1;
 }
 
 /// This function executes the given opcode.

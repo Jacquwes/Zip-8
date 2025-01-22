@@ -138,6 +138,11 @@ pub fn run(self: *Zip) !bool {
                     break :zip_loop;
                 },
             };
+
+            if (self.chip8.delay_timer > 0)
+                self.chip8.delay_timer -= 1;
+            if (self.chip8.sound_timer > 0)
+                self.chip8.sound_timer -= 1;
         }
 
         self.updateScreen();
