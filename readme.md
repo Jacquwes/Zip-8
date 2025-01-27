@@ -10,6 +10,3 @@ Keys are mapped 1:1 to the Chip-8 keypad (eg: a=a, b=b, 1=1, 2=2, etc)
 
 Left to implement:
 - Sound
-- Clipping
-- Shifting
-- Jumping
